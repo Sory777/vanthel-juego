@@ -176,9 +176,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     </div>
     <h1 class="game-title">VANTHEL</h1>
     <div class="game-sub">Las Leyendas del Parangueo</div>
-    <div class="game-tagline">El árbol de sandías guarda los secretos<br>del cráter de las 7 Luminarias…</div>
+    <div class="game-tagline">Nadie que ha bajado al cráter<br>vuelve contando lo mismo…</div>
     <div class="divider"></div>
-    <button class="play-btn" id="btnStart">JUGAR</button>
+    <button class="play-btn" id="btnStart">DESCENDER</button>
     <button class="sec-btn" id="btnHowTo" style="margin-top:4px">CÓMO JUGAR</button>
     <div class="version-tag">v0.1 · FASE 1</div>
   </div>
@@ -554,54 +554,151 @@ function render(){
   if(state===STATE.PLAYING && game){
     drawTunnel();
     drawEntities();
+    drawDarkness();                              // linterna + oscuridad
+    drawLurkingEyes(game, performance.now()/1000); // ojos acechando
+    drawVignette();                              // bordes oscuros
+    drawGrain();                                 // ruido tipo VHS/terror
   }
 }
 
 function drawTunnel(){
   const g = game;
-  // fondo del túnel (degradado + paredes en perspectiva)
+  const t = performance.now()/1000;
+  // fondo casi negro: cueva húmeda y profunda
   const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0, "#0a0018");
-  grad.addColorStop(0.5, "#12042a");
-  grad.addColorStop(1, "#04000d");
+  grad.addColorStop(0, "#020006");
+  grad.addColorStop(0.5, "#09030f");
+  grad.addColorStop(1, "#000000");
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,W,H);
 
-  // luz al final (cuando se acerca la meta)
+  // paredes de roca irregulares a los lados
+  drawCaveWalls(g, t);
+
+  // tenue luz al final (cuando se acerca la meta), fría y parpadeante
   if(g.flashLight > 0){
-    const r = ctx.createRadialGradient(W/2, 120, 10, W/2, 120, 300);
-    r.addColorStop(0, `rgba(255,240,180,${0.85*g.flashLight})`);
-    r.addColorStop(1, "rgba(255,240,180,0)");
+    const fl = g.flashLight * (0.65 + 0.35*Math.sin(t*9));
+    const r = ctx.createRadialGradient(W/2, 80, 8, W/2, 80, 330);
+    r.addColorStop(0, `rgba(150,200,255,${0.55*fl})`);
+    r.addColorStop(1, "rgba(150,200,255,0)");
     ctx.fillStyle = r;
     ctx.fillRect(0,0,W,H);
   }
 
-  // paredes laterales con líneas de profundidad (efecto túnel)
-  ctx.strokeStyle = "rgba(155,89,182,0.18)";
+  // líneas de profundidad muy tenues
+  ctx.strokeStyle = "rgba(120,90,160,0.05)";
   ctx.lineWidth = 2;
   for(let i=0;i<10;i++){
     const yy = ((i*90 + g.bgOffset) % (H+90)) - 45;
     const persp = 1 - (yy/H)*0.55;
     ctx.beginPath();
-    ctx.moveTo(W/2 - 220*persp, yy);
-    ctx.lineTo(W/2 + 220*persp, yy);
-    ctx.stroke();
-  }
-  // líneas de fuga
-  ctx.strokeStyle = "rgba(201,162,39,0.12)";
-  for(const lx of [-1,0,1]){
-    ctx.beginPath();
-    ctx.moveTo(W/2 + lx*40, 80);
-    ctx.lineTo(laneX(lx), GROUND_Y+40);
+    ctx.moveTo(W/2 - 230*persp, yy);
+    ctx.lineTo(W/2 + 230*persp, yy);
     ctx.stroke();
   }
 
-  // suelo
-  ctx.fillStyle = "rgba(40,10,60,0.6)";
+  // suelo de tierra y roca
+  ctx.fillStyle = "rgba(12,7,18,0.92)";
   ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
-  ctx.strokeStyle = "rgba(201,162,39,0.4)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(120,90,160,0.22)";
+  ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0,GROUND_Y); ctx.lineTo(W,GROUND_Y); ctx.stroke();
+}
+
+// Paredes de roca dentadas que se desplazan (efecto de cueva estrecha)
+function drawCaveWalls(g, t){
+  ctx.save();
+  ctx.fillStyle = "#0c0716";
+  const seg = 70;
+  const off = g.bgOffset % seg;
+  // izquierda
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  for(let y=-seg; y<=H+seg; y+=seg){
+    const yy = y - off;
+    const w = 38 + 22*Math.sin((yy+g.bgOffset)*0.03) + 14*Math.sin(yy*0.11);
+    ctx.lineTo(w, yy);
+  }
+  ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+  // derecha
+  ctx.beginPath();
+  ctx.moveTo(W,0);
+  for(let y=-seg; y<=H+seg; y+=seg){
+    const yy = y - off;
+    const w = 38 + 22*Math.sin((yy+g.bgOffset)*0.033+2) + 14*Math.sin(yy*0.1);
+    ctx.lineTo(W-w, yy);
+  }
+  ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// LINTERNA: todo oscuro salvo un círculo alrededor del jugador (parpadea)
+function drawDarkness(){
+  const g = game, p = g.player;
+  const t = performance.now()/1000;
+  let flick = 0.85 + 0.15*Math.sin(t*13);
+  if(Math.random()<0.035) flick -= 0.3;          // parpadeos bruscos
+  const cx = p.x, cy = p.y - p.h/2;
+  const radius = (188 + 22*Math.sin(t*3)) * flick;
+  const r = ctx.createRadialGradient(cx, cy, radius*0.28, cx, cy, radius);
+  r.addColorStop(0, "rgba(0,0,0,0)");
+  r.addColorStop(0.55, "rgba(2,0,8,0.4)");
+  r.addColorStop(1, "rgba(0,0,0,0.97)");
+  ctx.fillStyle = r;
+  ctx.fillRect(0,0,W,H);
+  // tinte cálido de la lámpara
+  const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  warm.addColorStop(0, `rgba(255,210,130,${0.10*flick})`);
+  warm.addColorStop(1, "rgba(255,210,130,0)");
+  ctx.fillStyle = warm;
+  ctx.fillRect(0,0,W,H);
+}
+
+// Ojos que aparecen y desaparecen en la oscuridad
+function drawLurkingEyes(g, t){
+  if(!g.eyes) g.eyes = [];
+  if(Math.random() < 0.012 && g.eyes.length < 3){
+    g.eyes.push({ x: 55 + Math.random()*(W-110), y: 120 + Math.random()*340,
+      life: 0, max: 80+Math.random()*70, hue: Math.random()<0.5 ? "#ff2e1f" : "#7dff3a" });
+  }
+  for(const e of g.eyes){
+    e.life++;
+    const a = Math.sin((e.life/e.max)*Math.PI);
+    if(a<=0) continue;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0,a)*0.9;
+    ctx.fillStyle = e.hue;
+    ctx.shadowColor = e.hue; ctx.shadowBlur = 12;
+    const blink = (Math.floor(e.life/8)%9===0) ? 0.2 : 1;
+    ctx.beginPath(); ctx.ellipse(e.x-9, e.y, 5, 3.2*blink, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(e.x+9, e.y, 5, 3.2*blink, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  g.eyes = g.eyes.filter(e => e.life < e.max);
+}
+
+// Viñeta: esquinas siempre oscuras
+function drawVignette(){
+  const r = ctx.createRadialGradient(W/2, H/2, H*0.28, W/2, H/2, H*0.78);
+  r.addColorStop(0, "rgba(0,0,0,0)");
+  r.addColorStop(1, "rgba(0,0,0,0.72)");
+  ctx.fillStyle = r;
+  ctx.fillRect(0,0,W,H);
+}
+
+// Grano sutil para textura de terror
+let grainSeed = 0;
+function drawGrain(){
+  grainSeed = (grainSeed+1)%1000;
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle = "#ffffff";
+  for(let i=0;i<26;i++){
+    const x = (Math.sin(grainSeed*12.9898 + i*78.233)*43758.5)%1;
+    const y = (Math.sin(grainSeed*39.346 + i*11.135)*12543.7)%1;
+    ctx.fillRect(Math.abs(x)*W, Math.abs(y)*H, 2, 2);
+  }
+  ctx.restore();
 }
 
 function drawEntities(){
@@ -630,16 +727,16 @@ function drawEntities(){
     ctx.save();
     ctx.translate(o.x, o.y);
     if(o.kind==="rock"){
-      ctx.fillStyle = "#3a2a1a";
-      ctx.strokeStyle = "#c9a227"; ctx.lineWidth=2;
+      ctx.fillStyle = "#160d12";
+      ctx.strokeStyle = "rgba(150,50,50,0.55)"; ctx.lineWidth=2;
       ctx.beginPath();
       ctx.moveTo(-o.w/2, 0); ctx.lineTo(-o.w/3, -o.h);
       ctx.lineTo(o.w/3, -o.h*0.9); ctx.lineTo(o.w/2, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
     } else {
-      // estalactita (punta hacia abajo desde arriba del obstáculo)
-      ctx.fillStyle = "#2a0a40";
-      ctx.strokeStyle = "#cc88ff"; ctx.lineWidth=2;
+      // estalactita afilada que gotea
+      ctx.fillStyle = "#120c1c";
+      ctx.strokeStyle = "rgba(120,80,150,0.6)"; ctx.lineWidth=2;
       ctx.beginPath();
       ctx.moveTo(-o.w/2, -o.h); ctx.lineTo(o.w/2, -o.h);
       ctx.lineTo(0, 0); ctx.closePath();
@@ -648,21 +745,21 @@ function drawEntities(){
     ctx.restore();
   }
 
-  // jugador (placeholder: cápsula con emoji — se reemplaza por la caricatura)
+  // ---- JUGADOR: explorador con lámpara ----
   ctx.save();
   ctx.translate(p.x, p.y);
   const blink = p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha = blink ? 0.4 : 1;
-  // aura
-  ctx.shadowColor = "#c9a227"; ctx.shadowBlur = 16;
-  ctx.fillStyle = "rgba(155,89,182,0.25)";
-  ctx.beginPath(); ctx.ellipse(0,-p.h/2,p.w/2+4,p.h/2+4,0,0,Math.PI*2); ctx.fill();
+  // halo de la lámpara
+  ctx.shadowColor = "#ffd27a"; ctx.shadowBlur = 22;
+  ctx.fillStyle = "rgba(255,210,120,0.12)";
+  ctx.beginPath(); ctx.arc(0, -p.h/2, p.w*0.8, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
-  // cuerpo placeholder
-  ctx.fillStyle = "#c9a227";
-  roundRect(ctx, -p.w/2, -p.h, p.w, p.h, 12); ctx.fill();
-  ctx.font = "30px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText("🧭", 0, -p.h/2);
+  if(heroReady){
+    ctx.drawImage(heroImg, -p.w/2, -p.h, p.w, p.h);   // <-- tu caricatura
+  } else {
+    drawExplorer(p);
+  }
   ctx.restore();
 
   // partículas
@@ -679,6 +776,49 @@ function roundRect(c,x,y,w,h,r){
   c.beginPath();
   c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
   c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+/* =====================================================================
+   PERSONAJE — caricatura del usuario
+   Cuando tengas tu imagen, pega su URL (o data:image/png;base64,...) en
+   HERO_SRC. Mientras tanto se dibuja un explorador con lámpara.
+   ===================================================================== */
+const HERO_SRC = ""; // <-- PEGA AQUÍ TU CARICATURA (URL o base64)
+const heroImg = new Image();
+let heroReady = false;
+if(HERO_SRC){
+  heroImg.crossOrigin = "anonymous";
+  heroImg.onload = ()=>{ heroReady = true; };
+  heroImg.src = HERO_SRC;
+  // también úsala en la pantalla de inicio
+  const sh = document.getElementById("startHero");
+  if(sh) sh.innerHTML = '<img src="'+HERO_SRC+'" alt="hero">';
+}
+
+// Explorador dibujado (placeholder hasta tener la caricatura)
+function drawExplorer(p){
+  const w=p.w, h=p.h;
+  // piernas
+  ctx.fillStyle = "#15111c";
+  ctx.fillRect(-w*0.26, -h*0.2, w*0.2, h*0.2);
+  ctx.fillRect(w*0.06, -h*0.2, w*0.2, h*0.2);
+  // abrigo / cuerpo
+  ctx.fillStyle = "#2b2336";
+  roundRect(ctx, -w*0.32, -h*0.74, w*0.64, h*0.6, 8); ctx.fill();
+  // mochila
+  ctx.fillStyle = "#3f2c19";
+  roundRect(ctx, -w*0.42, -h*0.66, w*0.16, h*0.4, 4); ctx.fill();
+  // cabeza
+  ctx.fillStyle = "#d9b48f";
+  ctx.beginPath(); ctx.arc(0, -h*0.82, w*0.22, 0, Math.PI*2); ctx.fill();
+  // cabello / gorro
+  ctx.fillStyle = "#241812";
+  ctx.beginPath(); ctx.arc(0, -h*0.85, w*0.23, Math.PI, 0); ctx.fill();
+  // lámpara en la mano (brillo)
+  ctx.fillStyle = "#ffd27a";
+  ctx.shadowColor = "#ffd27a"; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(w*0.36, -h*0.4, 5, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
 }
 
 /* ---------------------------------------------------------------------
