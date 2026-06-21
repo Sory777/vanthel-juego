@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>VANTHEL: Las Leyendas del Parangueo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#c9a227;--gold-light:#f0c040;--gold-dark:#8B6914;
+  --purple:#9b59b6;--purple-light:#cc88ff;--purple-dark:#4a0080;
+  --bg-deep:#04000d;--bg-mid:#0d0020;--red:#cc2200;
+  --cyan:#00ffee;--teal:#00c864;
+}
+html,body{width:100%;height:100%}
+body{background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Cinzel',serif;touch-action:none;-webkit-user-select:none;user-select:none}
+#gameWrapper{position:relative;width:480px;height:820px;max-width:100vw;max-height:100vh;overflow:hidden;background:linear-gradient(180deg,#04000d 0%,#0d0020 50%,#04000d 100%);box-shadow:0 0 60px rgba(0,0,0,.8)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* ============ SCREENS ============ */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:linear-gradient(180deg,#04000d 0%,#0d0020 50%,#04000d 100%);padding:24px;text-align:center}
+.screen.hidden{display:none!important}
+.stars-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.star{position:absolute;background:#fff;border-radius:50%;animation:twinkle var(--d,2s) ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(1)}50%{opacity:1;transform:scale(1.4)}}
+
+/* ============ TITLE ============ */
+.game-title{font-family:'Cinzel Decorative',cursive;font-size:36px;color:var(--gold);text-shadow:0 0 30px #c9a22788,0 0 60px #c9a22744;letter-spacing:3px;line-height:1;margin-bottom:6px}
+.game-sub{font-family:'Cinzel',serif;font-size:11px;color:var(--purple-light);letter-spacing:5px;text-transform:uppercase;margin-bottom:10px;opacity:.9}
+.game-tagline{font-family:'IM Fell English',serif;font-style:italic;font-size:14px;color:rgba(255,255,255,.55);margin-bottom:26px;padding:0 10px}
+.divider{width:220px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:18px 0}
+.play-btn{background:linear-gradient(135deg,var(--gold),var(--gold-dark));border:none;border-radius:4px;padding:16px 60px;color:#1a1200;font-family:'Cinzel Decorative',cursive;font-size:16px;cursor:pointer;letter-spacing:3px;box-shadow:0 0 30px #c9a22766;transition:all .2s;margin-bottom:12px}
+.play-btn:hover,.play-btn:active{box-shadow:0 0 60px #c9a227aa;transform:scale(1.04)}
+.version-tag{position:absolute;bottom:16px;font-size:10px;color:rgba(255,255,255,.22);letter-spacing:3px}
+
+#startHero{width:130px;height:190px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 20px #c9a22799) drop-shadow(0 0 40px #9b59b644);animation:heroFloat 3s ease-in-out infinite}
+#startHero img{width:100%;height:100%;object-fit:contain}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* ============ HUD ============ */
+#hud{position:absolute;top:0;left:0;right:0;padding:10px 12px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:50}
+.hud-pill{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.7);border-radius:20px;padding:5px 11px;backdrop-filter:blur(4px);font-size:13px;font-weight:700}
+.hud-coins{border:1px solid var(--gold);color:var(--gold-light)}
+.hud-lives{border:1px solid #8B0000;color:#ff6666}
+.coin-dot{width:13px;height:13px;background:radial-gradient(circle at 35% 35%,#ffe066,var(--gold),#7a5c00);border-radius:50%;border:1px solid #ffe066;box-shadow:0 0 6px #f0c04088}
+#hudCenter{position:absolute;top:9px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;z-index:50}
+.hud-level{color:var(--purple-light);font-size:9px;letter-spacing:2px;opacity:.85}
+.hud-dist{color:rgba(255,255,255,.85);font-size:12px;letter-spacing:1px;text-shadow:0 0 10px var(--purple)}
+
+/* distance/progress bar */
+#progWrap{position:absolute;top:42px;left:50%;transform:translateX(-50%);width:160px;height:4px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;z-index:50;pointer-events:none}
+#progFill{height:100%;width:0%;background:linear-gradient(90deg,var(--purple-dark),var(--gold-light));box-shadow:0 0 8px var(--purple);transition:width .15s linear}
+
+/* ============ CONTROLS ============ */
+#controls{position:absolute;bottom:0;left:0;right:0;height:150px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 16px 26px;pointer-events:none;z-index:50}
+.ctrl-group{display:flex;gap:10px;pointer-events:all}
+.btn{width:60px;height:60px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.5);backdrop-filter:blur(6px);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;transition:transform .08s,box-shadow .08s,background .08s;-webkit-tap-highlight-color:transparent}
+.btn:active,.btn.pressed{background:rgba(155,89,182,.45);border-color:var(--purple);box-shadow:0 0 18px rgba(155,89,182,.6);transform:scale(.92)}
+.btn-jump{width:72px;height:72px;border-color:rgba(255,200,0,.4)}
+.btn-jump:active,.btn-jump.pressed{background:rgba(255,180,0,.4);border-color:#ffd700;box-shadow:0 0 22px rgba(255,215,0,.6)}
+
+/* ============ FLOAT TEXT ============ */
+.float-text{position:absolute;pointer-events:none;font-family:'Cinzel',serif;font-weight:700;font-size:15px;color:var(--gold-light);text-shadow:0 0 10px var(--gold);animation:floatUp .9s ease-out forwards;z-index:200}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-30px) scale(1.2)}100%{opacity:0;transform:translateY(-70px) scale(.8)}}
+.float-purple{color:var(--purple-light);text-shadow:0 0 10px var(--purple)}
+.float-red{color:#ff5555;text-shadow:0 0 10px red}
+
+/* ============ NOTIFICATION ============ */
+#notification{position:absolute;top:-70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);border:1px solid var(--purple);border-radius:5px;padding:10px 18px;color:var(--purple-light);font-size:11px;letter-spacing:2px;max-width:90%;z-index:300;transition:top .4s ease;pointer-events:none;text-align:center}
+#notification.show{top:14px}
+#notification.gold{border-color:var(--gold);color:var(--gold-light)}
+
+/* ============ HUB / CRATER MAP ============ */
+#hubScreen{justify-content:flex-start;padding-top:30px;overflow-y:auto}
+.hub-header{font-family:'Cinzel Decorative',cursive;font-size:22px;color:var(--gold);text-shadow:0 0 20px #c9a22766;letter-spacing:2px;margin-bottom:2px}
+.hub-sub{font-size:9px;color:var(--purple-light);letter-spacing:3px;text-transform:uppercase;margin-bottom:18px;opacity:.8}
+.level-list{display:flex;flex-direction:column;gap:11px;width:100%;max-width:380px}
+.level-card{display:flex;align-items:center;gap:12px;background:rgba(13,0,32,.85);border:1px solid rgba(155,89,182,.35);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;text-align:left}
+.level-card:hover{border-color:var(--gold);background:rgba(30,10,50,.9);transform:translateX(3px)}
+.level-card.locked{opacity:.42;cursor:not-allowed;filter:grayscale(.6)}
+.level-card.locked:hover{transform:none;border-color:rgba(155,89,182,.35);background:rgba(13,0,32,.85)}
+.level-icon{font-size:30px;width:42px;text-align:center;flex-shrink:0}
+.level-info{flex:1;min-width:0}
+.level-name{color:#fff;font-size:13px;font-weight:600;margin-bottom:2px}
+.level-desc{color:rgba(255,255,255,.5);font-size:10px;font-family:'IM Fell English',serif;font-style:italic;line-height:1.3}
+.level-status{font-size:18px;flex-shrink:0}
+.hub-bottom{display:flex;gap:10px;margin-top:20px;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
+
+/* ============ SECONDARY BUTTONS ============ */
+.sec-btn{background:transparent;border:1px solid var(--purple);border-radius:4px;padding:11px 20px;color:var(--purple-light);font-family:'Cinzel',serif;font-size:11px;cursor:pointer;letter-spacing:2px;transition:all .2s}
+.sec-btn:hover,.sec-btn:active{background:rgba(155,89,182,.2)}
+.sec-btn.gold{border-color:var(--gold);color:var(--gold-light)}
+.sec-btn.gold:hover{background:rgba(201,162,39,.2)}
+
+/* ============ GAME OVER / VICTORY ============ */
+#endTitle{font-family:'Cinzel Decorative',cursive;font-size:30px;letter-spacing:2px;margin-bottom:8px}
+#endTitle.lose{color:var(--red);text-shadow:0 0 30px #cc220088}
+#endTitle.win{color:var(--gold);text-shadow:0 0 30px #c9a22788}
+.score-display{color:var(--gold-light);font-size:14px;letter-spacing:3px;margin-bottom:6px}
+.coins-display{color:var(--purple-light);font-size:13px;letter-spacing:2px;margin-bottom:22px;display:flex;align-items:center;gap:6px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:400px}
+
+/* ============ LEGEND CARD POPUP ============ */
+#legendCard{position:absolute;inset:0;background:rgba(0,0,0,.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:400;padding:30px;text-align:center;backdrop-filter:blur(3px)}
+.lc-inner{background:linear-gradient(160deg,#1a0030,#0d0020);border:2px solid var(--gold);border-radius:12px;padding:24px 22px;max-width:380px;box-shadow:0 0 50px #c9a22744;animation:popIn .5s ease-out}
+@keyframes popIn{0%{opacity:0;transform:scale(.85) translateY(20px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+.lc-badge{font-size:10px;letter-spacing:3px;color:var(--gold-light);text-transform:uppercase;margin-bottom:10px}
+.lc-icon{font-size:50px;margin-bottom:10px}
+.lc-title{font-family:'Cinzel Decorative',cursive;font-size:20px;color:var(--gold);margin-bottom:12px;letter-spacing:1px}
+.lc-text{color:rgba(255,255,255,.8);font-size:12px;font-family:'IM Fell English',serif;font-style:italic;line-height:1.6;margin-bottom:18px}
+.lc-cta{font-size:10px;color:var(--purple-light);letter-spacing:1px;margin-bottom:18px;border-top:1px solid rgba(155,89,182,.3);padding-top:14px}
+
+/* ============ MODAL (store / codes / ads placeholders) ============ */
+#modal{position:absolute;inset:0;background:rgba(0,0,0,.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:450;padding:28px;text-align:center;backdrop-filter:blur(3px)}
+.modal-inner{background:linear-gradient(160deg,#180028,#0a0018);border:2px solid var(--purple);border-radius:12px;padding:24px 20px;max-width:400px;width:100%;box-shadow:0 0 50px #9b59b644;animation:popIn .4s ease-out;max-height:90%;overflow-y:auto}
+.modal-title{font-family:'Cinzel Decorative',cursive;font-size:20px;color:var(--gold-light);margin-bottom:6px;letter-spacing:1px}
+.modal-sub{font-size:11px;color:rgba(255,255,255,.55);font-family:'IM Fell English',serif;font-style:italic;margin-bottom:18px}
+.shop-item{display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.4);border:1px solid rgba(155,89,182,.3);border-radius:8px;padding:11px 13px;margin-bottom:9px;text-align:left}
+.shop-icon{font-size:26px;width:36px;text-align:center}
+.shop-info{flex:1}
+.shop-name{color:#fff;font-size:12px;font-weight:600}
+.shop-cost{color:var(--gold-light);font-size:11px;display:flex;align-items:center;gap:4px;margin-top:2px}
+.shop-buy{background:linear-gradient(135deg,var(--gold),var(--gold-dark));border:none;border-radius:4px;padding:8px 14px;color:#1a1200;font-family:'Cinzel',serif;font-weight:700;font-size:10px;cursor:pointer;letter-spacing:1px}
+.shop-buy:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(1)}
+.shop-tag{font-size:8px;letter-spacing:1px;color:var(--purple-light);background:rgba(155,89,182,.15);border-radius:3px;padding:2px 5px;margin-top:3px;display:inline-block}
+.code-input{width:100%;background:rgba(0,0,0,.5);border:1px solid var(--purple);border-radius:6px;padding:12px;color:#fff;font-family:'Cinzel',serif;font-size:14px;letter-spacing:3px;text-align:center;text-transform:uppercase;margin-bottom:14px}
+.code-input:focus{outline:none;border-color:var(--gold)}
+.modal-close{margin-top:14px}
+.coin-inline{width:13px;height:13px;background:radial-gradient(circle at 35% 35%,#ffe066,var(--gold),#7a5c00);border-radius:50%;border:1px solid #ffe066;display:inline-block;vertical-align:middle}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.04)}
+::-webkit-scrollbar-thumb{background:rgba(155,89,182,.4);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+
+  <!-- ============ GAME CANVAS ============ -->
+  <canvas id="gameCanvas" width="480" height="820"></canvas>
+
+  <!-- ============ NOTIFICATION ============ -->
+  <div id="notification"></div>
+
+  <!-- ============ HUD (during gameplay) ============ -->
+  <div id="hud" class="hidden">
+    <div class="hud-pill hud-coins"><span class="coin-dot"></span><span id="hudCoins">0</span></div>
+    <div class="hud-pill hud-lives">❤ <span id="hudLives">3</span></div>
+  </div>
+  <div id="hudCenter" class="hidden">
+    <div class="hud-level" id="hudLevelName">EL TÚNEL SIN FIN</div>
+    <div class="hud-dist"><span id="hudDist">0</span> m</div>
+  </div>
+  <div id="progWrap" class="hidden"><div id="progFill"></div></div>
+
+  <!-- ============ CONTROLS (during gameplay) ============ -->
+  <div id="controls" class="hidden">
+    <div class="ctrl-group">
+      <div class="btn" id="btnLeft">◀</div>
+      <div class="btn" id="btnRight">▶</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="btn btn-jump" id="btnJump">⤒</div>
+    </div>
+  </div>
+
+  <!-- ============ START / TITLE SCREEN ============ -->
+  <div id="startScreen" class="screen">
+    <div class="stars-bg" id="starsStart"></div>
+    <div id="startHero">
+      <!-- ====== PLACEHOLDER DEL PERSONAJE (CARICATURA DEL USUARIO) ======
+           Reemplaza el emoji por: <img src="TU_IMAGEN.png" alt="hero">
+           Puede ser una URL o un data:image/png;base64,...  -->
+      <span style="font-size:90px">🧭</span>
+    </div>
+    <h1 class="game-title">VANTHEL</h1>
+    <div class="game-sub">Las Leyendas del Parangueo</div>
+    <div class="game-tagline">El árbol de sandías guarda los secretos<br>del cráter de las 7 Luminarias…</div>
+    <div class="divider"></div>
+    <button class="play-btn" id="btnStart">JUGAR</button>
+    <button class="sec-btn" id="btnHowTo" style="margin-top:4px">CÓMO JUGAR</button>
+    <div class="version-tag">v0.1 · FASE 1</div>
+  </div>
+
+  <!-- ============ HUB / CRATER MAP ============ -->
+  <div id="hubScreen" class="screen hidden">
+    <div class="stars-bg" id="starsHub"></div>
+    <div class="hud-pill hud-coins" style="position:absolute;top:14px;right:14px"><span class="coin-dot"></span><span id="hubCoins">0</span></div>
+    <div class="hub-header">El Cráter</div>
+    <div class="hub-sub">Rincón de Parangueo</div>
+    <div class="level-list" id="levelList"><!-- niveles generados por JS --></div>
+    <div class="hub-bottom">
+      <button class="sec-btn gold" id="btnShop">🛒 TIENDA</button>
+      <button class="sec-btn" id="btnCodes">🔍 CÓDIGOS</button>
+      <button class="sec-btn" id="btnBackTitle">◀ INICIO</button>
+    </div>
+  </div>
+
+  <!-- ============ END SCREEN (game over / victory) ============ -->
+  <div id="endScreen" class="screen hidden">
+    <div class="stars-bg" id="starsEnd"></div>
+    <h1 id="endTitle" class="lose">FIN</h1>
+    <div class="score-display" id="endDist">0 m alcanzados</div>
+    <div class="coins-display"><span class="coin-dot"></span><span id="endCoins">0</span> VANTHEL Coins ganadas</div>
+    <div class="btn-row">
+      <button class="sec-btn gold" id="btnRetry">↺ REINTENTAR</button>
+      <button class="sec-btn" id="btnWatchAd">📺 VER ANUNCIOS · +1 VIDA</button>
+      <button class="sec-btn" id="btnEndHub">🗺 MAPA</button>
+    </div>
+  </div>
+
+  <!-- ============ LEGEND CARD POPUP ============ -->
+  <div id="legendCard">
+    <div class="lc-inner">
+      <div class="lc-badge">📜 Carta de Leyenda desbloqueada</div>
+      <div class="lc-icon" id="lcIcon">🕳️</div>
+      <div class="lc-title" id="lcTitle"></div>
+      <div class="lc-text" id="lcText"></div>
+      <div class="lc-cta" id="lcCta">▶ Mira la historia completa en mi canal</div>
+      <button class="play-btn" id="lcContinue" style="padding:13px 40px;font-size:14px">CONTINUAR</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL (shop / codes / ads) ============ -->
+  <div id="modal">
+    <div class="modal-inner" id="modalInner"></div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   VANTHEL: Las Leyendas del Parangueo
+   FASE 1 — Motor base + Nivel 1 "El Túnel Sin Fin"
+   Arquitectura preparada para Fases 2-4 (tienda, códigos, anuncios).
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   0) CONFIGURACIÓN GLOBAL
+--------------------------------------------------------------------- */
+const W = 480, H = 820;
+const GROUND_Y = 680;              // altura del suelo del túnel
+const SAVE_KEY = "vanthel_save_v1";
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Estados de pantalla
+const STATE = { TITLE:"title", HUB:"hub", PLAYING:"playing", END:"end" };
+let state = STATE.TITLE;
+
+/* ---------------------------------------------------------------------
+   1) DATOS DE LOS NIVELES (las 6 leyendas)
+   Solo el Nivel 1 es jugable en Fase 1. Los demás quedan "bloqueados"
+   y se irán construyendo en las siguientes fases.
+--------------------------------------------------------------------- */
+const LEVELS = [
+  { id:1, icon:"🕳️", name:"El Túnel Sin Fin", desc:"Corre por el túnel que no parece tener final.", goal:1000, playable:true,
+    legend:{ icon:"🕳️", title:"El Túnel Sin Fin",
+      text:"Quienes entran al túnel del Rincón de Parangueo juran que se extiende sin final, como si el cráter quisiera tragarlos. Muchos regresan corriendo… otros dicen haber visto una luz al fondo que nunca lograron alcanzar." } },
+  { id:2, icon:"🔊", name:"Los Ecos", desc:"Voces que no son de nadie resuenan en el cráter.", goal:1200, playable:false,
+    legend:{ icon:"🔊", title:"Los Ecos", text:"Se escuchan ecos que no pertenecen a nadie presente…" } },
+  { id:3, icon:"👽", name:"Objetos de Otro Mundo", desc:"Artefactos imposibles ocultos en la oscuridad.", goal:1400, playable:false,
+    legend:{ icon:"👽", title:"Objetos de Otro Mundo", text:"Se han hallado objetos que no parecen de este mundo…" } },
+  { id:4, icon:"👻", name:"Las Ánimas", desc:"Almas que deambulan eternamente por el cráter.", goal:1600, playable:false,
+    legend:{ icon:"👻", title:"Las Ánimas", text:"Ánimas vagan sin descanso entre las sombras…" } },
+  { id:5, icon:"🛸", name:"El Portal y los OVNIs", desc:"Un portal se abre y se cierra en el cielo.", goal:1800, playable:false,
+    legend:{ icon:"🛸", title:"El Portal y los OVNIs", text:"Un portal aparece y desaparece; luces entran y salen…" } },
+  { id:6, icon:"🦕", name:"El Monstruo de la Laguna", desc:"Algo enorme se mueve bajo el agua del cráter.", goal:1, playable:false, boss:true,
+    legend:{ icon:"🦕", title:"El Monstruo de la Laguna", text:"En la laguna habita una criatura colosal, como la de Ness…" } },
+];
+
+/* ---------------------------------------------------------------------
+   2) ESTADO PERSISTENTE DEL JUGADOR (localStorage)
+--------------------------------------------------------------------- */
+const defaultSave = {
+  coins: 0,
+  unlockedLevels: [1],          // niveles desbloqueados
+  legendsFound: [],             // ids de leyendas con carta descubierta
+  redeemedCodes: [],            // códigos ya canjeados
+  upgrades: { maxLives: 3 },    // mejoras compradas en tienda
+};
+let save = loadSave();
+
+function loadSave(){
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(raw){ return Object.assign({}, defaultSave, JSON.parse(raw)); }
+  } catch(e){}
+  return JSON.parse(JSON.stringify(defaultSave));
+}
+function persist(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e){}
+}
+
+/* ---------------------------------------------------------------------
+   3) ESTADO DE PARTIDA (se reinicia en cada nivel)
+--------------------------------------------------------------------- */
+let game = null;
+function newGame(levelId){
+  const lvl = LEVELS.find(l => l.id === levelId);
+  return {
+    level: lvl,
+    lives: save.upgrades.maxLives,
+    coinsRun: 0,                 // coins ganadas en esta partida
+    distance: 0,                 // metros recorridos
+    speed: 4.2,                  // velocidad de scroll (sube con el tiempo)
+    running: true,
+    won: false,
+    // jugador
+    player: {
+      x: 120, y: GROUND_Y, w: 46, h: 64,
+      vy: 0, onGround: true, lane: 0,
+      invuln: 0,                 // frames de invulnerabilidad tras golpe
+    },
+    obstacles: [],
+    coins: [],
+    particles: [],
+    spawnTimer: 0,
+    coinTimer: 0,
+    bgOffset: 0,
+    flashLight: 0,               // brillo de la "luz al final"
+  };
+}
+
+/* ---------------------------------------------------------------------
+   4) FÍSICA Y CONSTANTES DEL NIVEL 1
+--------------------------------------------------------------------- */
+const GRAVITY = 0.9;
+const JUMP_FORCE = -16.5;
+const LANE_W = 70;               // desplazamiento lateral por carril
+const MAX_LANE = 1;              // carriles a cada lado (-1,0,1)
+
+/* ---------------------------------------------------------------------
+   5) INPUT (teclado + táctil)
+--------------------------------------------------------------------- */
+const input = { left:false, right:false, jump:false };
+
+function bindButton(el, key){
+  const down = (e)=>{ e.preventDefault(); input[key]=true; el.classList.add("pressed"); if(key==="jump") tryJump(); };
+  const up = (e)=>{ e.preventDefault(); input[key]=false; el.classList.remove("pressed"); };
+  el.addEventListener("touchstart", down, {passive:false});
+  el.addEventListener("touchend", up, {passive:false});
+  el.addEventListener("touchcancel", up, {passive:false});
+  el.addEventListener("mousedown", down);
+  el.addEventListener("mouseup", up);
+  el.addEventListener("mouseleave", up);
+}
+bindButton(document.getElementById("btnLeft"), "left");
+bindButton(document.getElementById("btnRight"), "right");
+bindButton(document.getElementById("btnJump"), "jump");
+
+// Movimiento lateral por carriles: pulsación cambia de carril
+let lastLaneInput = 0;
+document.getElementById("btnLeft").addEventListener("touchstart", ()=>moveLane(-1));
+document.getElementById("btnLeft").addEventListener("mousedown", ()=>moveLane(-1));
+document.getElementById("btnRight").addEventListener("touchstart", ()=>moveLane(1));
+document.getElementById("btnRight").addEventListener("mousedown", ()=>moveLane(1));
+
+function moveLane(dir){
+  if(state!==STATE.PLAYING || !game || !game.running) return;
+  game.player.lane = Math.max(-MAX_LANE, Math.min(MAX_LANE, game.player.lane + dir));
+}
+function tryJump(){
+  if(state!==STATE.PLAYING || !game || !game.running) return;
+  if(game.player.onGround){
+    game.player.vy = JUMP_FORCE;
+    game.player.onGround = false;
+  }
+}
+
+// Teclado (para PC / grabar en el canal)
+window.addEventListener("keydown", (e)=>{
+  if(e.repeat) return;
+  if(e.code==="ArrowLeft"||e.code==="KeyA") moveLane(-1);
+  if(e.code==="ArrowRight"||e.code==="KeyD") moveLane(1);
+  if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW"){ e.preventDefault(); tryJump(); }
+});
+
+/* ---------------------------------------------------------------------
+   6) GENERACIÓN DEL MUNDO (obstáculos y coins)
+--------------------------------------------------------------------- */
+function laneX(lane){ return W/2 + lane*LANE_W; }
+
+function spawnObstacle(){
+  const type = Math.random();
+  const lane = Math.floor(Math.random()*3) - 1; // -1,0,1
+  if(type < 0.55){
+    // roca en el suelo (saltar)
+    game.obstacles.push({ kind:"rock", lane, x:laneX(lane), y:GROUND_Y, w:50, h:46, passed:false });
+  } else {
+    // estalactita (cambiar de carril / agacharse -> aquí: cambiar carril)
+    game.obstacles.push({ kind:"spike", lane, x:laneX(lane), y:GROUND_Y-10, w:42, h:60, passed:false });
+  }
+}
+function spawnCoin(){
+  const lane = Math.floor(Math.random()*3) - 1;
+  const high = Math.random() < 0.4;
+  game.coins.push({ lane, x:laneX(lane), y: high ? GROUND_Y-110 : GROUND_Y-30, r:11, taken:false });
+}
+
+/* ---------------------------------------------------------------------
+   7) BUCLE PRINCIPAL
+--------------------------------------------------------------------- */
+let lastTime = 0;
+function loop(t){
+  const dt = Math.min(2, (t - lastTime)/16.67 || 1);
+  lastTime = t;
+  if(state===STATE.PLAYING && game && game.running){
+    update(dt);
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  const g = game, p = g.player;
+
+  // velocidad sube poco a poco
+  g.speed += 0.0016*dt;
+  g.distance += g.speed*dt*0.25;
+  g.bgOffset = (g.bgOffset + g.speed*dt) % 200;
+
+  // meta del nivel
+  const goal = g.level.goal;
+  if(g.distance >= goal && !g.won){
+    winLevel();
+    return;
+  }
+
+  // movimiento horizontal suave hacia el carril objetivo
+  const targetX = laneX(p.lane);
+  p.x += (targetX - p.x) * 0.25 * dt;
+
+  // gravedad / salto
+  p.vy += GRAVITY*dt;
+  p.y += p.vy*dt;
+  if(p.y >= GROUND_Y){ p.y = GROUND_Y; p.vy = 0; p.onGround = true; }
+
+  if(p.invuln > 0) p.invuln -= dt;
+
+  // spawns
+  g.spawnTimer -= dt;
+  if(g.spawnTimer <= 0){
+    spawnObstacle();
+    g.spawnTimer = Math.max(38, 95 - g.distance*0.03); // más seguido con el tiempo
+  }
+  g.coinTimer -= dt;
+  if(g.coinTimer <= 0){
+    spawnCoin();
+    g.coinTimer = 45 + Math.random()*40;
+  }
+
+  // mover obstáculos
+  for(const o of g.obstacles){
+    o.y += g.speed*dt;
+    // colisión (en pantalla, comparando hitbox del jugador)
+    if(!o.passed && rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, o.x-o.w/2, o.y-o.h, o.w, o.h)){
+      o.passed = true;
+      hitPlayer();
+    }
+    if(o.y - o.h > H) o.passed = true;
+  }
+  g.obstacles = g.obstacles.filter(o => o.y - o.h <= H + 40);
+
+  // mover coins
+  for(const c of g.coins){
+    c.y += g.speed*dt;
+    if(!c.taken && dist(p.x, p.y-p.h/2, c.x, c.y) < c.r + 26){
+      c.taken = true;
+      collectCoin(c);
+    }
+  }
+  g.coins = g.coins.filter(c => !c.taken && c.y - c.r <= H + 40);
+
+  // partículas
+  for(const pt of g.particles){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=0.3*dt; pt.life-=dt; }
+  g.particles = g.particles.filter(pt => pt.life>0);
+
+  // luz al final cuando se acerca a la meta
+  const rem = goal - g.distance;
+  g.flashLight = rem < 250 ? Math.max(0, 1 - rem/250) : 0;
+
+  updateHUD();
+}
+
+function rectHit(ax,ay,aw,ah,bx,by,bw,bh){
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+function dist(x1,y1,x2,y2){ return Math.hypot(x1-x2, y1-y2); }
+
+/* ---------------------------------------------------------------------
+   8) EVENTOS DE JUEGO
+--------------------------------------------------------------------- */
+function collectCoin(c){
+  game.coinsRun += 1;
+  burst(c.x, c.y, "#f0c040", 8);
+  floatText(c.x, c.y, "+1", "");
+}
+function hitPlayer(){
+  const p = game.player;
+  if(p.invuln > 0) return;
+  game.lives -= 1;
+  p.invuln = 70;
+  burst(p.x, p.y-p.h/2, "#ff4444", 14);
+  floatText(p.x, p.y-p.h-10, "-1 ❤", "float-red");
+  shake();
+  if(game.lives <= 0){
+    endRun(false);
+  }
+}
+function winLevel(){
+  game.won = true;
+  game.running = false;
+  // recompensa por completar
+  const bonus = 25 + game.level.id*10;
+  game.coinsRun += bonus;
+  endRun(true);
+}
+
+/* ---------------------------------------------------------------------
+   9) PARTÍCULAS Y EFECTOS
+--------------------------------------------------------------------- */
+function burst(x,y,color,n){
+  for(let i=0;i<n;i++){
+    game.particles.push({ x,y, vx:(Math.random()-0.5)*6, vy:(Math.random()-1)*5, life:20+Math.random()*15, color, r:2+Math.random()*3 });
+  }
+}
+let shakeAmt = 0;
+function shake(){ shakeAmt = 10; }
+
+function floatText(worldX, worldY, txt, cls){
+  // worldX/worldY están en coordenadas canvas (480x820 lógicas). Convertir a pantalla real.
+  const wrap = document.getElementById("gameWrapper");
+  const rect = wrap.getBoundingClientRect();
+  const sx = rect.left + (worldX/W)*rect.width;
+  const sy = rect.top + (worldY/H)*rect.height;
+  const el = document.createElement("div");
+  el.className = "float-text " + (cls||"");
+  el.textContent = txt;
+  el.style.left = sx + "px";
+  el.style.top = sy + "px";
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 950);
+}
+
+/* ---------------------------------------------------------------------
+   10) RENDER
+--------------------------------------------------------------------- */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  if(state===STATE.PLAYING && game){
+    drawTunnel();
+    drawEntities();
+  }
+}
+
+function drawTunnel(){
+  const g = game;
+  // fondo del túnel (degradado + paredes en perspectiva)
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, "#0a0018");
+  grad.addColorStop(0.5, "#12042a");
+  grad.addColorStop(1, "#04000d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // luz al final (cuando se acerca la meta)
+  if(g.flashLight > 0){
+    const r = ctx.createRadialGradient(W/2, 120, 10, W/2, 120, 300);
+    r.addColorStop(0, `rgba(255,240,180,${0.85*g.flashLight})`);
+    r.addColorStop(1, "rgba(255,240,180,0)");
+    ctx.fillStyle = r;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // paredes laterales con líneas de profundidad (efecto túnel)
+  ctx.strokeStyle = "rgba(155,89,182,0.18)";
+  ctx.lineWidth = 2;
+  for(let i=0;i<10;i++){
+    const yy = ((i*90 + g.bgOffset) % (H+90)) - 45;
+    const persp = 1 - (yy/H)*0.55;
+    ctx.beginPath();
+    ctx.moveTo(W/2 - 220*persp, yy);
+    ctx.lineTo(W/2 + 220*persp, yy);
+    ctx.stroke();
+  }
+  // líneas de fuga
+  ctx.strokeStyle = "rgba(201,162,39,0.12)";
+  for(const lx of [-1,0,1]){
+    ctx.beginPath();
+    ctx.moveTo(W/2 + lx*40, 80);
+    ctx.lineTo(laneX(lx), GROUND_Y+40);
+    ctx.stroke();
+  }
+
+  // suelo
+  ctx.fillStyle = "rgba(40,10,60,0.6)";
+  ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+  ctx.strokeStyle = "rgba(201,162,39,0.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,GROUND_Y); ctx.lineTo(W,GROUND_Y); ctx.stroke();
+}
+
+function drawEntities(){
+  const g = game, p = g.player;
+
+  // sombra del jugador
+  ctx.save();
+  if(shakeAmt>0){ ctx.translate((Math.random()-0.5)*shakeAmt, (Math.random()-0.5)*shakeAmt); shakeAmt*=0.85; if(shakeAmt<0.5)shakeAmt=0; }
+
+  // coins
+  for(const c of g.coins){
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.fillStyle = "#f0c040";
+    ctx.shadowColor = "#f0c040"; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#7a5c00";
+    ctx.font = "bold 11px Cinzel"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("V", 0, 1);
+    ctx.restore();
+  }
+
+  // obstáculos
+  for(const o of g.obstacles){
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    if(o.kind==="rock"){
+      ctx.fillStyle = "#3a2a1a";
+      ctx.strokeStyle = "#c9a227"; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(-o.w/2, 0); ctx.lineTo(-o.w/3, -o.h);
+      ctx.lineTo(o.w/3, -o.h*0.9); ctx.lineTo(o.w/2, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    } else {
+      // estalactita (punta hacia abajo desde arriba del obstáculo)
+      ctx.fillStyle = "#2a0a40";
+      ctx.strokeStyle = "#cc88ff"; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(-o.w/2, -o.h); ctx.lineTo(o.w/2, -o.h);
+      ctx.lineTo(0, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // jugador (placeholder: cápsula con emoji — se reemplaza por la caricatura)
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  const blink = p.invuln>0 && Math.floor(p.invuln/4)%2===0;
+  ctx.globalAlpha = blink ? 0.4 : 1;
+  // aura
+  ctx.shadowColor = "#c9a227"; ctx.shadowBlur = 16;
+  ctx.fillStyle = "rgba(155,89,182,0.25)";
+  ctx.beginPath(); ctx.ellipse(0,-p.h/2,p.w/2+4,p.h/2+4,0,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // cuerpo placeholder
+  ctx.fillStyle = "#c9a227";
+  roundRect(ctx, -p.w/2, -p.h, p.w, p.h, 12); ctx.fill();
+  ctx.font = "30px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText("🧭", 0, -p.h/2);
+  ctx.restore();
+
+  // partículas
+  for(const pt of g.particles){
+    ctx.globalAlpha = Math.max(0, pt.life/35);
+    ctx.fillStyle = pt.color;
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+/* ---------------------------------------------------------------------
+   11) HUD
+--------------------------------------------------------------------- */
+function updateHUD(){
+  document.getElementById("hudCoins").textContent = save.coins + game.coinsRun;
+  document.getElementById("hudLives").textContent = game.lives;
+  document.getElementById("hudDist").textContent = Math.floor(game.distance);
+  document.getElementById("hudLevelName").textContent = game.level.name.toUpperCase();
+  const pct = Math.min(100, (game.distance/game.level.goal)*100);
+  document.getElementById("progFill").style.width = pct + "%";
+}
+
+/* ---------------------------------------------------------------------
+   12) FLUJO DE PANTALLAS
+--------------------------------------------------------------------- */
+function show(id){ document.getElementById(id).classList.remove("hidden"); }
+function hide(id){ document.getElementById(id).classList.add("hidden"); }
+
+function showHUD(on){
+  ["hud","hudCenter","progWrap","controls"].forEach(id => on ? show(id) : hide(id));
+}
+
+function goTitle(){
+  state = STATE.TITLE;
+  hide("hubScreen"); hide("endScreen"); show("startScreen");
+  showHUD(false);
+}
+function goHub(){
+  state = STATE.HUB;
+  hide("startScreen"); hide("endScreen"); show("hubScreen");
+  showHUD(false);
+  renderHub();
+}
+function startLevel(levelId){
+  const lvl = LEVELS.find(l=>l.id===levelId);
+  if(!lvl) return;
+  if(!lvl.playable){
+    notify("🔒 Esta leyenda llega muy pronto…");
+    return;
+  }
+  if(!save.unlockedLevels.includes(levelId)){
+    notify("🔒 Nivel bloqueado");
+    return;
+  }
+  game = newGame(levelId);
+  state = STATE.PLAYING;
+  hide("startScreen"); hide("hubScreen"); hide("endScreen");
+  showHUD(true);
+  updateHUD();
+}
+
+function endRun(won){
+  game.running = false;
+  // guardar coins ganadas
+  save.coins += game.coinsRun;
+  if(won){
+    // desbloquear siguiente nivel + carta de leyenda
+    const nextId = game.level.id + 1;
+    if(LEVELS.find(l=>l.id===nextId) && !save.unlockedLevels.includes(nextId)){
+      save.unlockedLevels.push(nextId);
+    }
+    if(!save.legendsFound.includes(game.level.id)){
+      save.legendsFound.push(game.level.id);
+    }
+  }
+  persist();
+  // mostrar carta de leyenda primero si ganó, luego pantalla final
+  if(won){
+    showLegendCard(game.level, ()=>showEnd(true));
+  } else {
+    showEnd(false);
+  }
+}
+
+function showEnd(won){
+  state = STATE.END;
+  showHUD(false);
+  hide("startScreen"); hide("hubScreen"); show("endScreen");
+  const title = document.getElementById("endTitle");
+  if(won){
+    title.textContent = "¡LEYENDA SUPERADA!";
+    title.className = "win";
+    document.getElementById("btnWatchAd").style.display = "none";
+  } else {
+    title.textContent = "HAS CAÍDO";
+    title.className = "lose";
+    document.getElementById("btnWatchAd").style.display = "";
+  }
+  document.getElementById("endDist").textContent = Math.floor(game.distance) + " m alcanzados";
+  document.getElementById("endCoins").textContent = game.coinsRun;
+}
+
+/* ---------------------------------------------------------------------
+   13) CARTA DE LEYENDA
+--------------------------------------------------------------------- */
+let legendCb = null;
+function showLegendCard(lvl, cb){
+  legendCb = cb;
+  document.getElementById("lcIcon").textContent = lvl.legend.icon;
+  document.getElementById("lcTitle").textContent = lvl.legend.title;
+  document.getElementById("lcText").textContent = lvl.legend.text;
+  document.getElementById("legendCard").style.display = "flex";
+}
+document.getElementById("lcContinue").addEventListener("click", ()=>{
+  document.getElementById("legendCard").style.display = "none";
+  if(legendCb){ const cb=legendCb; legendCb=null; cb(); }
+});
+
+/* ---------------------------------------------------------------------
+   14) HUB (mapa del cráter)
+--------------------------------------------------------------------- */
+function renderHub(){
+  document.getElementById("hubCoins").textContent = save.coins;
+  const list = document.getElementById("levelList");
+  list.innerHTML = "";
+  for(const lvl of LEVELS){
+    const unlocked = save.unlockedLevels.includes(lvl.id);
+    const found = save.legendsFound.includes(lvl.id);
+    const card = document.createElement("div");
+    card.className = "level-card" + (unlocked && lvl.playable ? "" : " locked");
+    let status = "🔒";
+    if(unlocked && lvl.playable) status = found ? "✅" : "▶";
+    else if(unlocked && !lvl.playable) status = "⏳";
+    card.innerHTML = `
+      <div class="level-icon">${lvl.icon}</div>
+      <div class="level-info">
+        <div class="level-name">${lvl.id}. ${lvl.name}</div>
+        <div class="level-desc">${lvl.desc}</div>
+      </div>
+      <div class="level-status">${status}</div>`;
+    card.addEventListener("click", ()=>startLevel(lvl.id));
+    list.appendChild(card);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   15) NOTIFICACIONES
+--------------------------------------------------------------------- */
+let notifyTimer = null;
+function notify(msg, gold){
+  const n = document.getElementById("notification");
+  n.textContent = msg;
+  n.className = gold ? "gold show" : "show";
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(()=>{ n.classList.remove("show"); }, 2600);
+}
+
+/* =====================================================================
+   16) GANCHOS PARA FASES FUTURAS (tienda, códigos, anuncios)
+   Estas funciones son funcionales como prototipo local. En la Fase 4
+   se conectan a backend / SDK de anuncios reales (AdMob, AdSense...).
+   ===================================================================== */
+
+// ----- TIENDA -----
+const SHOP_ITEMS = [
+  { id:"life",  icon:"❤", name:"Vida extra (+1 vida máx.)", cost:50,  type:"upgrade",
+    apply:()=>{ save.upgrades.maxLives += 1; } },
+  { id:"shield",icon:"🛡️", name:"Escudo inicial (próximamente)", cost:120, type:"upgrade", soon:true },
+  // ----- MERCH (canje real de tu marca) -----
+  { id:"hoodie",icon:"🧥", name:"Sudadera VANTHEL", cost:5000, type:"merch", stock:5,  tag:"5 disponibles" },
+  { id:"tshirt",icon:"👕", name:"Playera VANTHEL",  cost:2500, type:"merch", stock:10, tag:"10 disponibles" },
+  { id:"cap",   icon:"🧢", name:"Gorra VANTHEL",    cost:2000, type:"merch", stock:10, tag:"10 disponibles" },
+];
+
+function openShop(){
+  const inner = document.getElementById("modalInner");
+  let html = `<div class="modal-title">🛒 Tienda VANTHEL</div>
+    <div class="modal-sub">Canjea tus VANTHEL Coins por mejoras y premios reales</div>
+    <div style="margin-bottom:14px;color:var(--gold-light);font-size:13px">
+      <span class="coin-inline"></span> Tienes <b>${save.coins}</b> coins</div>`;
+  for(const it of SHOP_ITEMS){
+    const canBuy = save.coins >= it.cost && !it.soon;
+    html += `<div class="shop-item">
+      <div class="shop-icon">${it.icon}</div>
+      <div class="shop-info">
+        <div class="shop-name">${it.name}</div>
+        <div class="shop-cost"><span class="coin-inline"></span> ${it.cost}</div>
+        ${it.tag?`<span class="shop-tag">${it.tag}</span>`:""}
+        ${it.type==="merch"?`<span class="shop-tag">premio real · requiere registro</span>`:""}
+      </div>
+      <button class="shop-buy" data-id="${it.id}" ${canBuy?"":"disabled"}>${it.soon?"PRONTO":"CANJEAR"}</button>
+    </div>`;
+  }
+  html += `<button class="sec-btn modal-close" id="modalCloseBtn">CERRAR</button>`;
+  inner.innerHTML = html;
+  document.getElementById("modal").style.display = "flex";
+  inner.querySelectorAll(".shop-buy").forEach(b=>{
+    b.addEventListener("click", ()=>buyItem(b.dataset.id));
+  });
+  document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+}
+function buyItem(id){
+  const it = SHOP_ITEMS.find(i=>i.id===id);
+  if(!it || save.coins < it.cost) return;
+  if(it.type==="merch"){
+    // FASE 4: aquí se conecta el flujo real de canje (registro, dirección, validación de stock en backend)
+    notify("🎁 ¡Premio reservado! Te pediremos tus datos para el envío. (demo)", true);
+    return;
+  }
+  save.coins -= it.cost;
+  if(it.apply) it.apply();
+  persist();
+  notify("✅ ¡Mejora aplicada!", true);
+  openShop(); // refrescar
+}
+
+// ----- CÓDIGOS OCULTOS (los escondes en tus redes) -----
+// FASE 4: validar contra backend. Por ahora, lista local de ejemplo.
+const SECRET_CODES = {
+  "VANTHEL100": { reward:100, msg:"+100 coins por seguir el canal" },
+  "PARANGUEO":  { reward:50,  msg:"+50 coins por la leyenda secreta" },
+  "SANDIA":     { reward:25,  msg:"+25 coins ocultos" },
+};
+function openCodes(){
+  const inner = document.getElementById("modalInner");
+  inner.innerHTML = `
+    <div class="modal-title">🔍 Códigos Ocultos</div>
+    <div class="modal-sub">Encuentra códigos en mis videos y redes sociales para ganar coins y recompensas</div>
+    <input class="code-input" id="codeInput" placeholder="ESCRIBE EL CÓDIGO" maxlength="20">
+    <button class="play-btn" id="codeSubmit" style="padding:12px 30px;font-size:13px;width:100%">CANJEAR</button>
+    <button class="sec-btn modal-close" id="modalCloseBtn">CERRAR</button>`;
+  document.getElementById("modal").style.display = "flex";
+  document.getElementById("codeSubmit").addEventListener("click", redeemCode);
+  document.getElementById("codeInput").addEventListener("keydown", e=>{ if(e.key==="Enter") redeemCode(); });
+  document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+}
+function redeemCode(){
+  const val = (document.getElementById("codeInput").value||"").trim().toUpperCase();
+  if(!val) return;
+  if(save.redeemedCodes.includes(val)){ notify("⚠️ Ya canjeaste ese código"); return; }
+  const code = SECRET_CODES[val];
+  if(!code){ notify("❌ Código inválido"); return; }
+  save.coins += code.reward;
+  save.redeemedCodes.push(val);
+  persist();
+  notify("🔮 " + code.msg, true);
+  closeModal();
+  if(state===STATE.HUB) renderHub();
+}
+
+// ----- ANUNCIOS POR VIDA -----
+// FASE 4: integrar SDK real (AdMob recompensado / AdSense). Aquí: simulación.
+function watchAdForLife(){
+  notify("📺 Reproduciendo anuncio… (demo)");
+  const btn = document.getElementById("btnWatchAd");
+  btn.disabled = true; btn.textContent = "VIENDO ANUNCIO…";
+  setTimeout(()=>{
+    // revivir con 1 vida y continuar el mismo nivel
+    game.lives = 1;
+    game.running = true;
+    game.player.invuln = 90;
+    game.obstacles = [];
+    state = STATE.PLAYING;
+    hide("endScreen"); showHUD(true);
+    btn.disabled = false; btn.textContent = "📺 VER ANUNCIOS · +1 VIDA";
+    notify("❤ ¡Continúas con 1 vida!", true);
+  }, 1500);
+}
+
+function closeModal(){ document.getElementById("modal").style.display = "none"; }
+
+// ----- CÓMO JUGAR -----
+function openHowTo(){
+  const inner = document.getElementById("modalInner");
+  inner.innerHTML = `
+    <div class="modal-title">Cómo jugar</div>
+    <div class="modal-sub">El Túnel Sin Fin</div>
+    <div style="text-align:left;color:rgba(255,255,255,.8);font-size:12px;line-height:1.9;margin-bottom:16px">
+      ◀ ▶ &nbsp; Cambia de carril para esquivar<br>
+      ⤒ (o ESPACIO) &nbsp; Salta las rocas<br>
+      🪙 &nbsp; Recoge VANTHEL Coins<br>
+      🏁 &nbsp; Llega al final del túnel (la luz)<br>
+      ❤ &nbsp; Pierdes una vida al chocar
+    </div>
+    <button class="sec-btn modal-close" id="modalCloseBtn">ENTENDIDO</button>`;
+  document.getElementById("modal").style.display = "flex";
+  document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+}
+
+/* ---------------------------------------------------------------------
+   17) BOTONES DE UI
+--------------------------------------------------------------------- */
+document.getElementById("btnStart").addEventListener("click", goHub);
+document.getElementById("btnHowTo").addEventListener("click", openHowTo);
+document.getElementById("btnBackTitle").addEventListener("click", goTitle);
+document.getElementById("btnShop").addEventListener("click", openShop);
+document.getElementById("btnCodes").addEventListener("click", openCodes);
+document.getElementById("btnRetry").addEventListener("click", ()=>startLevel(game.level.id));
+document.getElementById("btnEndHub").addEventListener("click", goHub);
+document.getElementById("btnWatchAd").addEventListener("click", watchAdForLife);
+
+/* ---------------------------------------------------------------------
+   18) ESTRELLAS DE FONDO (decorativo)
+--------------------------------------------------------------------- */
+function makeStars(containerId, n){
+  const c = document.getElementById(containerId);
+  for(let i=0;i<n;i++){
+    const s = document.createElement("div");
+    s.className = "star";
+    const sz = Math.random()*2+1;
+    s.style.width = s.style.height = sz+"px";
+    s.style.left = Math.random()*100+"%";
+    s.style.top = Math.random()*100+"%";
+    s.style.setProperty("--d", (1.5+Math.random()*2.5)+"s");
+    s.style.animationDelay = Math.random()*3+"s";
+    c.appendChild(s);
+  }
+}
+makeStars("starsStart", 60);
+makeStars("starsHub", 40);
+makeStars("starsEnd", 40);
+
+/* ---------------------------------------------------------------------
+   19) ARRANQUE
+--------------------------------------------------------------------- */
+goTitle();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
