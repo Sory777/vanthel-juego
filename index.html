@@ -178,6 +178,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <div class="divider"></div>
     <button class="play-btn" id="btnStart">DESCENDER</button>
     <button class="sec-btn" id="btnHowTo" style="margin-top:4px">CÓMO JUGAR</button>
+    <button class="sec-btn mute-btn" style="margin-top:4px">🔊 SONIDO: ON</button>
     <div class="version-tag">v1.0 · 6 LEYENDAS</div>
   </div>
 
@@ -191,6 +192,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <div class="hub-bottom">
       <button class="sec-btn gold" id="btnShop">🛒 TIENDA</button>
       <button class="sec-btn" id="btnCodes">🔍 CÓDIGOS</button>
+      <button class="sec-btn mute-btn">🔊 SONIDO: ON</button>
       <button class="sec-btn" id="btnBackTitle">◀ INICIO</button>
     </div>
   </div>
@@ -394,6 +396,7 @@ function tryJump(){
   if(game.player.onGround){
     game.player.vy = JUMP_FORCE;
     game.player.onGround = false;
+    SFX.jump();
   }
 }
 
@@ -550,6 +553,9 @@ function update(dt){
   const rem = goal - g.distance;
   g.flashLight = rem < 250 ? Math.max(0, 1 - rem/250) : 0;
 
+  // latidos de tensión cuando queda poca vida
+  SFX.tickHeartbeat(dt, g.lives);
+
   updateHUD();
 }
 
@@ -565,6 +571,7 @@ function collectCoin(c){
   game.coinsRun += 1;
   burst(c.x, c.y, "#f0c040", 8);
   floatText(c.x, c.y, "+1", "");
+  SFX.coin();
 }
 function hitPlayer(){
   const p = game.player;
@@ -574,6 +581,7 @@ function hitPlayer(){
   burst(p.x, p.y-p.h/2, "#ff4444", 14);
   floatText(p.x, p.y-p.h-10, "-1 ❤", "float-red");
   shake();
+  SFX.hit();
   if(game.lives <= 0){
     endRun(false);
   }
@@ -598,6 +606,7 @@ function updateBoss(dt){
   if(b.attackTimer <= 0){
     spawnObstacle();                               // ráfaga extra de ataque
     shake();
+    SFX.bossRoar();
     b.attackTimer = 60 + Math.random()*55;
   }
 }
@@ -1042,10 +1051,14 @@ function startLevel(levelId){
   hide("startScreen"); hide("hubScreen"); hide("endScreen");
   showHUD(true);
   updateHUD();
+  SFX.unlock();
+  SFX.startAmbient(lvl);
 }
 
 function endRun(won){
   game.running = false;
+  SFX.stopAmbient();
+  if(won) SFX.win(); else SFX.lose();
   // guardar coins ganadas
   save.coins += game.coinsRun;
   if(won){
@@ -1247,6 +1260,7 @@ function watchAdForLife(){
     game.obstacles = [];
     state = STATE.PLAYING;
     hide("endScreen"); showHUD(true);
+    SFX.startAmbient(game.level);
     btn.disabled = false; btn.textContent = "📺 VER ANUNCIOS · +1 VIDA";
     notify("❤ ¡Continúas con 1 vida!", true);
   }, 1500);
@@ -1279,9 +1293,156 @@ function openHowTo(){
 }
 
 /* ---------------------------------------------------------------------
+   16.b) SONIDO DE TERROR (Web Audio API — sin archivos externos)
+--------------------------------------------------------------------- */
+const SFX = (function(){
+  let ac=null, master=null, started=false;
+  let muted = !!save.muted;
+  let amb = null;                 // nodos del ambiente
+  let scareTimer = null;          // sustos aleatorios programados
+  let heartAcc = 0;               // acumulador de latidos
+  let noiseBuf = null;
+
+  function ensure(){
+    if(ac) return true;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return false;
+    ac = new AC();
+    master = ac.createGain();
+    master.gain.value = muted ? 0 : 0.85;
+    master.connect(ac.destination);
+    // buffer de ruido reutilizable
+    noiseBuf = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    return true;
+  }
+  function unlock(){
+    if(!ensure()) return;
+    if(ac.state==="suspended") ac.resume();
+    started = true;
+  }
+  function now(){ return ac.currentTime; }
+
+  // tono con envolvente
+  function tone(freq, dur, type, vol, glideTo, dest){
+    if(!ac) return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, now());
+    if(glideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1,glideTo), now()+dur);
+    g.gain.setValueAtTime(0.0001, now());
+    g.gain.exponentialRampToValueAtTime(vol||0.3, now()+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, now()+dur);
+    o.connect(g); g.connect(dest||master);
+    o.start(); o.stop(now()+dur+0.05);
+  }
+  function noise(dur, vol, filterFreq, dest){
+    if(!ac) return;
+    const src = ac.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const f = ac.createBiquadFilter(); f.type="lowpass"; f.frequency.value = filterFreq||800;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol||0.3, now());
+    g.gain.exponentialRampToValueAtTime(0.0001, now()+dur);
+    src.connect(f); f.connect(g); g.connect(dest||master);
+    src.start(); src.stop(now()+dur+0.05);
+  }
+
+  // ---- EFECTOS PUNTUALES ----
+  function jump(){ if(!started) return; tone(240, 0.18, "square", 0.18, 520); }
+  function coin(){ if(!started) return; tone(880,0.08,"sine",0.22,1100); setTimeout(()=>tone(1320,0.12,"sine",0.2,1500),60); }
+  function hit(){
+    if(!started) return;
+    tone(180,0.35,"sawtooth",0.35,55);
+    noise(0.25,0.35,500);
+  }
+  function win(){
+    if(!started) return;
+    [392,523,659,784].forEach((f,i)=> setTimeout(()=>tone(f,0.3,"triangle",0.28),i*120));
+  }
+  function lose(){
+    if(!started) return;
+    tone(220,1.1,"sawtooth",0.32,40);
+    noise(0.8,0.25,300);
+    setTimeout(()=>scare(),250);
+  }
+  function bossRoar(){
+    if(!started) return;
+    tone(70,0.9,"sawtooth",0.4,45);
+    tone(95,0.9,"square",0.18,55);
+    noise(0.7,0.3,260);
+  }
+  // susto: chillido agudo corto
+  function scare(){
+    if(!started) return;
+    tone(1400 + Math.random()*600, 0.18, "sawtooth", 0.22, 300);
+    noise(0.18, 0.18, 3000);
+  }
+
+  // ---- AMBIENTE CONTINUO ----
+  function startAmbient(lvl){
+    if(!ensure()) return;
+    unlock();
+    stopAmbient();
+    amb = {};
+    // drone grave (dos osciladores desafinados)
+    const baseHz = lvl && lvl.boss ? 44 : 54;
+    amb.d1 = ac.createOscillator(); amb.d1.type="sawtooth"; amb.d1.frequency.value=baseHz;
+    amb.d2 = ac.createOscillator(); amb.d2.type="sawtooth"; amb.d2.frequency.value=baseHz*1.01;
+    amb.dg = ac.createGain(); amb.dg.gain.value = 0.12;
+    const lp = ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=320;
+    amb.d1.connect(lp); amb.d2.connect(lp); lp.connect(amb.dg); amb.dg.connect(master);
+    amb.d1.start(); amb.d2.start();
+    // viento/ruido tenue
+    amb.ns = ac.createBufferSource(); amb.ns.buffer=noiseBuf; amb.ns.loop=true;
+    const nf = ac.createBiquadFilter(); nf.type="bandpass"; nf.frequency.value=420; nf.Q.value=0.6;
+    amb.ng = ac.createGain(); amb.ng.gain.value=0.05;
+    amb.ns.connect(nf); nf.connect(amb.ng); amb.ng.connect(master);
+    amb.ns.start();
+    // sustos aleatorios cada cierto tiempo
+    const loopScare = ()=>{
+      scareTimer = setTimeout(()=>{ if(amb){ if(Math.random()<0.6) scare(); loopScare(); } },
+        4000 + Math.random()*7000);
+    };
+    loopScare();
+    heartAcc = 0;
+  }
+  function stopAmbient(){
+    if(scareTimer){ clearTimeout(scareTimer); scareTimer=null; }
+    if(!amb) return;
+    try{ amb.d1.stop(); amb.d2.stop(); amb.ns.stop(); }catch(e){}
+    amb = null;
+  }
+  // latidos cuando queda poca vida (más rápidos con 1 vida)
+  function tickHeartbeat(dt, lives){
+    if(!started || muted || lives>2) return;
+    const interval = lives<=1 ? 28 : 46;   // en "frames" ~ dt
+    heartAcc += dt;
+    if(heartAcc >= interval){
+      heartAcc = 0;
+      tone(60,0.12,"sine",0.4,42);
+      setTimeout(()=>tone(58,0.14,"sine",0.34,40),150);
+    }
+  }
+
+  function toggleMute(){
+    muted = !muted;
+    save.muted = muted; persist();
+    if(master) master.gain.value = muted ? 0 : 0.85;
+    if(!muted) unlock();
+    return muted;
+  }
+  function isMuted(){ return muted; }
+
+  return { unlock, jump, coin, hit, win, lose, bossRoar, scare,
+           startAmbient, stopAmbient, tickHeartbeat, toggleMute, isMuted };
+})();
+
+/* ---------------------------------------------------------------------
    17) BOTONES DE UI
 --------------------------------------------------------------------- */
-document.getElementById("btnStart").addEventListener("click", goHub);
+document.getElementById("btnStart").addEventListener("click", ()=>{ SFX.unlock(); goHub(); });
 document.getElementById("btnHowTo").addEventListener("click", openHowTo);
 document.getElementById("btnBackTitle").addEventListener("click", goTitle);
 document.getElementById("btnShop").addEventListener("click", openShop);
@@ -1289,6 +1450,18 @@ document.getElementById("btnCodes").addEventListener("click", openCodes);
 document.getElementById("btnRetry").addEventListener("click", ()=>startLevel(game.level.id));
 document.getElementById("btnEndHub").addEventListener("click", goHub);
 document.getElementById("btnWatchAd").addEventListener("click", watchAdForLife);
+
+// ----- BOTÓN DE SONIDO -----
+function updateMuteLabel(){
+  const m = SFX.isMuted();
+  document.querySelectorAll(".mute-btn").forEach(b=>{
+    b.textContent = m ? "🔇 SONIDO: OFF" : "🔊 SONIDO: ON";
+  });
+}
+document.querySelectorAll(".mute-btn").forEach(b=>{
+  b.addEventListener("click", ()=>{ SFX.toggleMute(); updateMuteLabel(); });
+});
+updateMuteLabel();
 
 /* ---------------------------------------------------------------------
    18) ESTRELLAS DE FONDO (decorativo)
