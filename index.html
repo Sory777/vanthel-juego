@@ -1126,7 +1126,8 @@ function drawEntities(){
   ctx.beginPath(); ctx.arc(0, -p.h/2, p.w*0.8, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
   if(heroReady){
-    ctx.drawImage(heroImg, -p.w/2, -p.h, p.w, p.h);   // <-- tu caricatura
+    const dh = p.h*1.32, dw = dh*0.667;               // respeta la proporción 2:3
+    ctx.drawImage(heroImg, -dw/2, -dh, dw, dh);        // <-- tu caricatura
   } else {
     drawExplorer(p);
   }
@@ -1157,8 +1158,8 @@ const HERO_SRC = "personaje_original.png"; // <-- tu caricatura
 const heroImg = new Image();
 let heroReady = false;
 if(HERO_SRC){
-  heroImg.crossOrigin = "anonymous";
   heroImg.onload = ()=>{ heroReady = true; };
+  heroImg.onerror = ()=>{ heroReady = false; };
   heroImg.src = HERO_SRC;
 }
 
