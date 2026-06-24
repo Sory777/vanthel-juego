@@ -36,6 +36,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
 #startHero{width:300px;height:300px;max-width:78vw;margin-bottom:14px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 24px #c9a227aa) drop-shadow(0 0 50px #9b59b655);animation:heroFloat 3s ease-in-out infinite}
 #startHero img{width:100%;height:100%;object-fit:contain;border-radius:10px}
+
+/* ===== PORTADA A PANTALLA COMPLETA ===== */
+.cover-screen{padding:0;justify-content:flex-end;background:#000;overflow:hidden}
+#coverImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+#coverButtons{position:relative;z-index:2;width:100%;padding:90px 24px 42px;display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.55) 45%,rgba(0,0,0,.92) 100%)}
+.cover-row{display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap}
 @keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 
 /* ============ HUD ============ */
@@ -59,6 +65,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .btn:active,.btn.pressed{background:rgba(155,89,182,.45);border-color:var(--purple);box-shadow:0 0 18px rgba(155,89,182,.6);transform:scale(.92)}
 .btn-jump{width:72px;height:72px;border-color:rgba(255,200,0,.4)}
 .btn-jump:active,.btn-jump.pressed{background:rgba(255,180,0,.4);border-color:#ffd700;box-shadow:0 0 22px rgba(255,215,0,.6)}
+.btn-duck{border-color:rgba(120,200,255,.4)}
+.btn-duck:active,.btn-duck.pressed{background:rgba(60,150,255,.4);border-color:#5ab0ff;box-shadow:0 0 18px rgba(90,176,255,.6)}
 
 /* ============ FLOAT TEXT ============ */
 .float-text{position:absolute;pointer-events:none;font-family:'Cinzel',serif;font-weight:700;font-size:15px;color:var(--gold-light);text-shadow:0 0 10px var(--gold);animation:floatUp .9s ease-out forwards;z-index:200}
@@ -161,24 +169,21 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
       <div class="btn" id="btnRight">▶</div>
     </div>
     <div class="ctrl-group">
+      <div class="btn btn-duck" id="btnDuck">⤓</div>
       <div class="btn btn-jump" id="btnJump">⤒</div>
     </div>
   </div>
 
   <!-- ============ START / TITLE SCREEN ============ -->
-  <div id="startScreen" class="screen">
-    <div class="stars-bg" id="starsStart"></div>
-    <div id="startHero">
-      <!-- Portada del juego -->
-      <img src="Copilot_20260621_160217.png" alt="VANTHEL portada">
+  <div id="startScreen" class="screen cover-screen">
+    <img id="coverImg" src="Copilot_20260621_160217.png" alt="VANTHEL">
+    <div id="coverButtons">
+      <button class="play-btn" id="btnStart">DESCENDER</button>
+      <div class="cover-row">
+        <button class="sec-btn" id="btnHowTo">CÓMO JUGAR</button>
+        <button class="sec-btn mute-btn">🔊 SONIDO: ON</button>
+      </div>
     </div>
-    <h1 class="game-title">VANTHEL</h1>
-    <div class="game-sub">Las Leyendas del Parangueo</div>
-    <div class="game-tagline">Nadie que ha bajado al cráter<br>vuelve contando lo mismo…</div>
-    <div class="divider"></div>
-    <button class="play-btn" id="btnStart">DESCENDER</button>
-    <button class="sec-btn" id="btnHowTo" style="margin-top:4px">CÓMO JUGAR</button>
-    <button class="sec-btn mute-btn" style="margin-top:4px">🔊 SONIDO: ON</button>
     <div class="version-tag">v1.0 · 6 LEYENDAS</div>
   </div>
 
@@ -345,6 +350,7 @@ function newGame(levelId){
       x: W/2, y: GROUND_Y, w: 46, h: 64,
       vy: 0, onGround: true, lane: 0,
       invuln: 0,                 // frames de invulnerabilidad tras golpe
+      walk: 0, ducking: false, curH: 64,
     },
     obstacles: [],
     coins: [],
@@ -372,7 +378,7 @@ const MAX_LANE = 1;              // carriles a cada lado (-1,0,1)
 /* ---------------------------------------------------------------------
    5) INPUT (teclado + táctil)
 --------------------------------------------------------------------- */
-const input = { left:false, right:false, jump:false };
+const input = { left:false, right:false, jump:false, down:false };
 
 function bindButton(el, key){
   const down = (e)=>{ e.preventDefault(); input[key]=true; el.classList.add("pressed"); if(key==="jump") tryJump(); };
@@ -387,6 +393,7 @@ function bindButton(el, key){
 bindButton(document.getElementById("btnLeft"), "left");
 bindButton(document.getElementById("btnRight"), "right");
 bindButton(document.getElementById("btnJump"), "jump");
+bindButton(document.getElementById("btnDuck"), "down");
 
 // Movimiento lateral por carriles: pulsación cambia de carril
 let lastLaneInput = 0;
@@ -410,10 +417,14 @@ function tryJump(){
 
 // Teclado (para PC / grabar en el canal)
 window.addEventListener("keydown", (e)=>{
+  if(e.code==="ArrowDown"||e.code==="KeyS"){ e.preventDefault(); input.down=true; }
   if(e.repeat) return;
   if(e.code==="ArrowLeft"||e.code==="KeyA") moveLane(-1);
   if(e.code==="ArrowRight"||e.code==="KeyD") moveLane(1);
   if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW"){ e.preventDefault(); tryJump(); }
+});
+window.addEventListener("keyup", (e)=>{
+  if(e.code==="ArrowDown"||e.code==="KeyS"){ input.down=false; }
 });
 
 /* ---------------------------------------------------------------------
@@ -512,6 +523,13 @@ function update(dt){
   p.y += p.vy*dt;
   if(p.y >= GROUND_Y){ p.y = GROUND_Y; p.vy = 0; p.onGround = true; }
 
+  // agacharse (solo en el suelo) — tipo Mario
+  p.ducking = !!input.down && p.onGround;
+  p.curH = p.ducking ? 34 : p.h;
+
+  // animación de caminar
+  if(p.onGround && g.running) p.walk += 0.32*dt;
+
   if(p.invuln > 0) p.invuln -= dt;
 
   // spawns (ritmo según el nivel)
@@ -571,9 +589,9 @@ function update(dt){
     if(o.kind==="ufo" && o.beam>0.5){ hx = sx-12*s; hw = 24*s; hy = by; hh = GROUND_Y - by; }
     o._sx = sx; o._s = s; o._t = t;                     // guardado para el render
 
-    // colisión solo cuando está cerca del jugador
+    // colisión solo cuando está cerca del jugador (usa la altura actual: agachado = más bajo)
     if(!o.passed && p.invuln<=0 && t>0.6 &&
-       rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, hx, hy, hw, hh)){
+       rectHit(p.x-p.w/2, p.y-p.curH, p.w, p.curH, hx, hy, hw, hh)){
       o.passed = true;
       hitPlayer();
     }
@@ -1115,18 +1133,31 @@ function drawEntities(){
     ctx.restore();
   }
 
-  // ---- JUGADOR: explorador con lámpara ----
+  // ---- JUGADOR: explorador con lámpara (camina, salta y se agacha) ----
   ctx.save();
-  ctx.translate(p.x, p.y);
+  const bob = (p.onGround && game.running && !p.ducking) ? Math.sin(p.walk)*3 : 0;
+  ctx.translate(p.x, p.y - bob);
   const blink = p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha = blink ? 0.4 : 1;
   // halo de la lámpara
   ctx.shadowColor = "#ffd27a"; ctx.shadowBlur = 22;
   ctx.fillStyle = "rgba(255,210,120,0.12)";
-  ctx.beginPath(); ctx.arc(0, -p.h/2, p.w*0.8, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -p.curH/2, p.w*0.8, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
+  // dimensiones del sprite según acción
+  const baseH = p.h*1.32, baseW = baseH*0.667;
+  let dw = baseW, dh = baseH;
+  if(p.ducking){
+    dh = baseH*0.6; dw = baseW*1.14;                  // agachado: chaparro y ancho
+  } else if(!p.onGround){
+    dh = baseH*1.07; dw = baseW*0.95;                 // saltando: estirado
+  } else {
+    const sq = Math.sin(p.walk*2)*0.045;              // pasos: leve squash/stretch
+    dh = baseH*(1+sq); dw = baseW*(1-sq);
+  }
   if(heroReady){
-    const dh = p.h*1.32, dw = dh*0.667;               // respeta la proporción 2:3
+    const lean = (p.onGround && !p.ducking) ? Math.sin(p.walk)*0.05 : 0;
+    ctx.rotate(lean);
     ctx.drawImage(heroImg, -dw/2, -dh, dw, dh);        // <-- tu caricatura
   } else {
     drawExplorer(p);
@@ -1462,16 +1493,16 @@ function openHowTo(){
     <div class="modal-title">Cómo jugar</div>
     <div class="modal-sub">Las 6 Leyendas del Parangueo</div>
     <div style="text-align:left;color:rgba(255,255,255,.8);font-size:12px;line-height:1.9;margin-bottom:16px">
-      ◀ ▶ &nbsp; Cambia de carril para esquivar<br>
-      ⤒ (o ESPACIO) &nbsp; Salta las rocas<br>
+      ◀ ▶ &nbsp; Cambia de carril<br>
+      ⤒ (ESPACIO/↑) &nbsp; Salta las rocas y cosas del suelo<br>
+      ⤓ (↓/S) &nbsp; Agáchate bajo los murciélagos y cosas que vuelan<br>
       🪙 &nbsp; Recoge VANTHEL Coins<br>
       🏁 &nbsp; Llega al final de cada leyenda<br>
       ❤ &nbsp; Pierdes una vida al chocar<br><br>
       <b style="color:var(--gold-light)">Cuidado con cada leyenda:</b><br>
-      🔊 Ecos: esquiva las ondas de sonido<br>
-      👽 Objetos: no saltes hacia los cristales<br>
-      👻 Ánimas: te persiguen, ¡muévete!<br>
-      🛸 OVNIs: evita sus rayos de luz<br>
+      🦇 Murciélagos: agáchate<br>
+      🧛 Vampiros: salen de las tumbas, salta o cámbiate<br>
+      🔊 Ecos / 🛸 OVNIs: esquiva cambiando de carril<br>
       🦕 El Monstruo: sobrevive a sus ataques
     </div>
     <button class="sec-btn modal-close" id="modalCloseBtn">ENTENDIDO</button>`;
@@ -1655,6 +1686,7 @@ updateMuteLabel();
 --------------------------------------------------------------------- */
 function makeStars(containerId, n){
   const c = document.getElementById(containerId);
+  if(!c) return;
   for(let i=0;i<n;i++){
     const s = document.createElement("div");
     s.className = "star";
