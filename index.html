@@ -34,8 +34,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .play-btn:hover,.play-btn:active{box-shadow:0 0 60px #c9a227aa;transform:scale(1.04)}
 .version-tag{position:absolute;bottom:16px;font-size:10px;color:rgba(255,255,255,.22);letter-spacing:3px}
 
-#startHero{width:130px;height:190px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 20px #c9a22799) drop-shadow(0 0 40px #9b59b644);animation:heroFloat 3s ease-in-out infinite}
-#startHero img{width:100%;height:100%;object-fit:contain}
+#startHero{width:300px;height:300px;max-width:78vw;margin-bottom:14px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 24px #c9a227aa) drop-shadow(0 0 50px #9b59b655);animation:heroFloat 3s ease-in-out infinite}
+#startHero img{width:100%;height:100%;object-fit:contain;border-radius:10px}
 @keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 
 /* ============ HUD ============ */
@@ -169,14 +169,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   <div id="startScreen" class="screen">
     <div class="stars-bg" id="starsStart"></div>
     <div id="startHero">
-      <!-- Moneda VANTHEL en la portada -->
-      <div style="width:130px;height:130px;border-radius:50%;
-        background:radial-gradient(circle at 35% 30%,#ffe680,#f0c040 45%,#8B6914 100%);
-        border:5px solid #ffe066;
-        box-shadow:0 0 40px #f0c040cc, inset 0 0 22px #00000066;
-        display:flex;align-items:center;justify-content:center;
-        font-family:'Cinzel Decorative',cursive;font-size:66px;color:#5a3d00;
-        text-shadow:0 1px 2px #ffe680">V</div>
+      <!-- Portada del juego -->
+      <img src="Copilot_20260621_160217.png" alt="VANTHEL portada">
     </div>
     <h1 class="game-title">VANTHEL</h1>
     <div class="game-sub">Las Leyendas del Parangueo</div>
@@ -184,7 +178,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <div class="divider"></div>
     <button class="play-btn" id="btnStart">DESCENDER</button>
     <button class="sec-btn" id="btnHowTo" style="margin-top:4px">CÓMO JUGAR</button>
-    <div class="version-tag">v0.1 · FASE 1</div>
+    <div class="version-tag">v1.0 · 6 LEYENDAS</div>
   </div>
 
   <!-- ============ HUB / CRATER MAP ============ -->
@@ -264,17 +258,41 @@ const LEVELS = [
   { id:1, icon:"🕳️", name:"El Túnel Sin Fin", desc:"Corre por el túnel que no parece tener final.", goal:1000, playable:true,
     legend:{ icon:"🕳️", title:"El Túnel Sin Fin",
       text:"Quienes entran al túnel del Rincón de Parangueo juran que se extiende sin final, como si el cráter quisiera tragarlos. Muchos regresan corriendo… otros dicen haber visto una luz al fondo que nunca lograron alcanzar." } },
-  { id:2, icon:"🔊", name:"Los Ecos", desc:"Voces que no son de nadie resuenan en el cráter.", goal:1200, playable:false,
-    legend:{ icon:"🔊", title:"Los Ecos", text:"Se escuchan ecos que no pertenecen a nadie presente…" } },
-  { id:3, icon:"👽", name:"Objetos de Otro Mundo", desc:"Artefactos imposibles ocultos en la oscuridad.", goal:1400, playable:false,
-    legend:{ icon:"👽", title:"Objetos de Otro Mundo", text:"Se han hallado objetos que no parecen de este mundo…" } },
-  { id:4, icon:"👻", name:"Las Ánimas", desc:"Almas que deambulan eternamente por el cráter.", goal:1600, playable:false,
-    legend:{ icon:"👻", title:"Las Ánimas", text:"Ánimas vagan sin descanso entre las sombras…" } },
-  { id:5, icon:"🛸", name:"El Portal y los OVNIs", desc:"Un portal se abre y se cierra en el cielo.", goal:1800, playable:false,
-    legend:{ icon:"🛸", title:"El Portal y los OVNIs", text:"Un portal aparece y desaparece; luces entran y salen…" } },
-  { id:6, icon:"🦕", name:"El Monstruo de la Laguna", desc:"Algo enorme se mueve bajo el agua del cráter.", goal:1, playable:false, boss:true,
-    legend:{ icon:"🦕", title:"El Monstruo de la Laguna", text:"En la laguna habita una criatura colosal, como la de Ness…" } },
+  { id:2, icon:"🔊", name:"Los Ecos", desc:"Esquiva las ondas de sonido que recorren el cráter.", goal:1200, playable:true,
+    legend:{ icon:"🔊", title:"Los Ecos",
+      text:"En lo profundo se escuchan voces y ecos que no pertenecen a nadie presente. Resuenan en las paredes como ondas vivas que buscan a quien las escucha. Dicen que si te alcanzan, repiten tu voz para siempre." } },
+  { id:3, icon:"👽", name:"Objetos de Otro Mundo", desc:"Artefactos flotantes bloquean el paso. No saltes hacia ellos.", goal:1400, playable:true,
+    legend:{ icon:"👽", title:"Objetos de Otro Mundo",
+      text:"En el cráter se han hallado artefactos que no parecen de este mundo: flotan, brillan y zumban con energía desconocida. Quien los toca, cuentan, no vuelve a ser el mismo." } },
+  { id:4, icon:"👻", name:"Las Ánimas", desc:"Ánimas que te persiguen y se deslizan hacia ti.", goal:1600, playable:true,
+    legend:{ icon:"👻", title:"Las Ánimas",
+      text:"Las ánimas del Parangueo vagan sin descanso entre las sombras. No caminan: se deslizan hacia el calor de los vivos. Cambiar de rumbo no siempre basta… ellas te siguen." } },
+  { id:5, icon:"🛸", name:"El Portal y los OVNIs", desc:"OVNIs disparan rayos de luz. Esquiva y llega al portal.", goal:1800, playable:true,
+    legend:{ icon:"🛸", title:"El Portal y los OVNIs",
+      text:"Un portal se abre y se cierra sobre la laguna. De él salen luces que recorren el cielo y descienden con rayos cegadores. Llegar al portal es la única salida… o la entrada a otro lugar." } },
+  { id:6, icon:"🦕", name:"El Monstruo de la Laguna", desc:"Sobrevive al monstruo del cráter y todos sus ataques.", goal:1600, playable:true, boss:true,
+    legend:{ icon:"🦕", title:"El Monstruo de la Laguna",
+      text:"En la laguna del cráter habita una criatura colosal, como la de Ness. Quien la enfrenta y sobrevive se convierte en leyenda. Tú lo lograste: ahora el Parangueo conoce tu nombre." } },
 ];
+
+/* ---------------------------------------------------------------------
+   1.b) CONFIGURACIÓN POR NIVEL (tema visual + mecánica)
+--------------------------------------------------------------------- */
+const LEVEL_CONFIG = {
+  1: { speed:4.2, top:"#020006", mid:"#09030f", accent:"rgba(120,90,160,", eyes:["#ff2e1f","#7dff3a"],
+       lamp:"#ffd27a", hazards:["rock","spike"], spawnBase:95, spawnMin:38, coinMin:45 },
+  2: { speed:4.6, top:"#001014", mid:"#03181f", accent:"rgba(0,200,200,", eyes:["#00ffee","#00c864"],
+       lamp:"#7afff0", hazards:["echo","rock"], spawnBase:92, spawnMin:36, coinMin:42 },
+  3: { speed:5.0, top:"#0a0014", mid:"#15002a", accent:"rgba(125,255,58,", eyes:["#7dff3a","#aaff00"],
+       lamp:"#caffa0", hazards:["artifact","spike"], spawnBase:90, spawnMin:36, coinMin:40 },
+  4: { speed:5.2, top:"#04000d", mid:"#0a0618", accent:"rgba(200,210,255,", eyes:["#ffffff","#aabbff"],
+       lamp:"#dfe6ff", hazards:["anima","rock"], spawnBase:88, spawnMin:34, coinMin:40 },
+  5: { speed:5.6, top:"#00040f", mid:"#001a33", accent:"rgba(51,204,255,", eyes:["#33ccff","#ff33cc"],
+       lamp:"#aee6ff", hazards:["ufo","spike"], spawnBase:86, spawnMin:34, coinMin:38 },
+  6: { speed:5.2, top:"#001008", mid:"#02201a", accent:"rgba(0,255,136,", eyes:["#ff2e1f","#00ff88"],
+       lamp:"#9affd0", hazards:["rock","spike","anima","ufo"], spawnBase:70, spawnMin:28, coinMin:36, boss:true },
+};
+function cfg(){ return LEVEL_CONFIG[game.level.id] || LEVEL_CONFIG[1]; }
 
 /* ---------------------------------------------------------------------
    2) ESTADO PERSISTENTE DEL JUGADOR (localStorage)
@@ -305,12 +323,13 @@ function persist(){
 let game = null;
 function newGame(levelId){
   const lvl = LEVELS.find(l => l.id === levelId);
+  const c = LEVEL_CONFIG[levelId] || LEVEL_CONFIG[1];
   return {
     level: lvl,
     lives: save.upgrades.maxLives,
     coinsRun: 0,                 // coins ganadas en esta partida
     distance: 0,                 // metros recorridos
-    speed: 4.2,                  // velocidad de scroll (sube con el tiempo)
+    speed: c.speed,              // velocidad de scroll (sube con el tiempo)
     running: true,
     won: false,
     // jugador
@@ -322,10 +341,13 @@ function newGame(levelId){
     obstacles: [],
     coins: [],
     particles: [],
+    eyes: [],
     spawnTimer: 0,
     coinTimer: 0,
     bgOffset: 0,
     flashLight: 0,               // brillo de la "luz al final"
+    // jefe final
+    boss: c.boss ? { y:-160, targetY:90, mouth:0, attackTimer:60 } : null,
   };
 }
 
@@ -389,14 +411,33 @@ window.addEventListener("keydown", (e)=>{
 function laneX(lane){ return W/2 + lane*LANE_W; }
 
 function spawnObstacle(){
-  const type = Math.random();
+  const c = cfg();
+  const hazards = c.hazards;
+  const kind = hazards[Math.floor(Math.random()*hazards.length)];
   const lane = Math.floor(Math.random()*3) - 1; // -1,0,1
-  if(type < 0.55){
-    // roca en el suelo (saltar)
+
+  if(kind==="rock"){
+    // roca en el suelo: SALTAR para esquivar
     game.obstacles.push({ kind:"rock", lane, x:laneX(lane), y:GROUND_Y, w:50, h:46, passed:false });
-  } else {
-    // estalactita (cambiar de carril / agacharse -> aquí: cambiar carril)
+  } else if(kind==="spike"){
+    // estalactita afilada: cambiar de carril
     game.obstacles.push({ kind:"spike", lane, x:laneX(lane), y:GROUND_Y-10, w:42, h:60, passed:false });
+  } else if(kind==="echo"){
+    // ONDA DE SONIDO: barra ancha que ocupa un carril (a veces dos). Cambiar de carril.
+    game.obstacles.push({ kind:"echo", lane, x:laneX(lane), y:GROUND_Y-40, w:64, h:84, passed:false, phase:Math.random()*6.28 });
+    if(Math.random()<0.45){ // a veces bloquea un segundo carril contiguo
+      const l2 = lane===1 ? 0 : lane+1;
+      game.obstacles.push({ kind:"echo", lane:l2, x:laneX(l2), y:GROUND_Y-40, w:64, h:84, passed:false, phase:Math.random()*6.28 });
+    }
+  } else if(kind==="artifact"){
+    // OBJETO FLOTANTE: a la altura de la cabeza. NO saltes hacia él; pásalo agachado en el suelo o cambia de carril.
+    game.obstacles.push({ kind:"artifact", lane, x:laneX(lane), y:GROUND_Y-96, w:46, h:46, passed:false, spin:0 });
+  } else if(kind==="anima"){
+    // ÁNIMA: te persigue deslizándose hacia tu carril.
+    game.obstacles.push({ kind:"anima", lane, x:laneX(lane), y:GROUND_Y-30, w:44, h:64, passed:false, drift:0.6, wob:Math.random()*6.28 });
+  } else if(kind==="ufo"){
+    // OVNI: aparece y dispara un rayo en su carril. Cambiar de carril.
+    game.obstacles.push({ kind:"ufo", lane, x:laneX(lane), y:GROUND_Y-20, w:56, h:70, passed:false, beam:0 });
   }
 }
 function spawnCoin(){
@@ -445,23 +486,45 @@ function update(dt){
 
   if(p.invuln > 0) p.invuln -= dt;
 
-  // spawns
+  // spawns (ritmo según el nivel)
+  const c = cfg();
   g.spawnTimer -= dt;
   if(g.spawnTimer <= 0){
     spawnObstacle();
-    g.spawnTimer = Math.max(38, 95 - g.distance*0.03); // más seguido con el tiempo
+    g.spawnTimer = Math.max(c.spawnMin, c.spawnBase - g.distance*0.03);
   }
   g.coinTimer -= dt;
   if(g.coinTimer <= 0){
     spawnCoin();
-    g.coinTimer = 45 + Math.random()*40;
+    g.coinTimer = c.coinMin + Math.random()*40;
   }
 
-  // mover obstáculos
+  // jefe final (Nivel 6)
+  if(g.boss) updateBoss(dt);
+
+  // mover obstáculos + comportamiento por tipo
   for(const o of g.obstacles){
     o.y += g.speed*dt;
-    // colisión (en pantalla, comparando hitbox del jugador)
-    if(!o.passed && rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, o.x-o.w/2, o.y-o.h, o.w, o.h)){
+
+    // comportamientos especiales
+    if(o.kind==="anima"){
+      // se desliza hacia el carril del jugador (persigue)
+      o.wob += 0.08*dt;
+      const tx = laneX(p.lane) + Math.sin(o.wob)*10;
+      o.x += Math.sign(tx - o.x) * o.drift * dt;
+    } else if(o.kind==="artifact"){
+      o.spin += 0.1*dt;
+    } else if(o.kind==="ufo"){
+      o.beam = Math.max(0, Math.min(1, o.beam + (o.y>120 ? 0.04 : -0.02)*dt));
+    } else if(o.kind==="echo"){
+      o.phase += 0.15*dt;
+    }
+
+    // hitbox (el rayo del OVNI llega hasta el suelo)
+    let hx=o.x-o.w/2, hy=o.y-o.h, hw=o.w, hh=o.h;
+    if(o.kind==="ufo" && o.beam>0.5){ hw=22; hx=o.x-11; hh=GROUND_Y - (o.y-o.h); }
+
+    if(!o.passed && p.invuln<=0 && rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, hx, hy, hw, hh)){
       o.passed = true;
       hitPlayer();
     }
@@ -525,6 +588,59 @@ function winLevel(){
 }
 
 /* ---------------------------------------------------------------------
+   8.b) JEFE FINAL — El Monstruo de la Laguna (Nivel 6)
+--------------------------------------------------------------------- */
+function updateBoss(dt){
+  const b = game.boss;
+  b.y += (b.targetY - b.y) * 0.03 * dt;            // emerge desde arriba
+  b.mouth = 0.5 + 0.5*Math.sin(performance.now()/280);
+  b.attackTimer -= dt;
+  if(b.attackTimer <= 0){
+    spawnObstacle();                               // ráfaga extra de ataque
+    shake();
+    b.attackTimer = 60 + Math.random()*55;
+  }
+}
+
+function drawBoss(){
+  if(!game || !game.boss) return;
+  const b = game.boss, t = performance.now()/1000;
+  const cx = W/2, cy = b.y;
+  ctx.save();
+  ctx.translate(cx + Math.sin(t*0.8)*14, cy);
+  // silueta del monstruo (cabeza tipo "Nessie")
+  ctx.fillStyle = "#03150d";
+  ctx.strokeStyle = "rgba(0,255,136,0.45)"; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 120, 70, 0, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  // cuello que se hunde
+  ctx.beginPath();
+  ctx.moveTo(-26, 40); ctx.quadraticCurveTo(60, 130, 30, 200);
+  ctx.lineTo(80, 200); ctx.quadraticCurveTo(70, 120, 26, 40);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // ojos brillantes
+  ctx.shadowColor = "#ff2e1f"; ctx.shadowBlur = 24;
+  ctx.fillStyle = "#ff2e1f";
+  ctx.beginPath(); ctx.arc(-38, -8, 11, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(38, -8, 11, 0, Math.PI*2); ctx.fill();
+  // fauces
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#120000";
+  ctx.beginPath();
+  ctx.ellipse(0, 36, 56, 10 + b.mouth*22, 0, 0, Math.PI*2);
+  ctx.fill();
+  // colmillos
+  ctx.fillStyle = "#cfe9d8";
+  for(let i=-2;i<=2;i++){
+    ctx.beginPath();
+    ctx.moveTo(i*20-6, 30); ctx.lineTo(i*20+6, 30); ctx.lineTo(i*20, 30+10+b.mouth*16);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---------------------------------------------------------------------
    9) PARTÍCULAS Y EFECTOS
 --------------------------------------------------------------------- */
 function burst(x,y,color,n){
@@ -559,6 +675,7 @@ function render(){
     drawTunnel();
     drawEntities();
     drawDarkness();                              // linterna + oscuridad
+    drawBoss();                                  // jefe final (solo Nivel 6)
     drawLurkingEyes(game, performance.now()/1000); // ojos acechando
     drawVignette();                              // bordes oscuros
     drawGrain();                                 // ruido tipo VHS/terror
@@ -567,11 +684,12 @@ function render(){
 
 function drawTunnel(){
   const g = game;
+  const c = cfg();
   const t = performance.now()/1000;
-  // fondo casi negro: cueva húmeda y profunda
+  // fondo según el tema del nivel
   const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0, "#020006");
-  grad.addColorStop(0.5, "#09030f");
+  grad.addColorStop(0, c.top);
+  grad.addColorStop(0.5, c.mid);
   grad.addColorStop(1, "#000000");
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,W,H);
@@ -662,8 +780,9 @@ function drawDarkness(){
 function drawLurkingEyes(g, t){
   if(!g.eyes) g.eyes = [];
   if(Math.random() < 0.012 && g.eyes.length < 3){
+    const hues = (LEVEL_CONFIG[g.level.id]||LEVEL_CONFIG[1]).eyes;
     g.eyes.push({ x: 55 + Math.random()*(W-110), y: 120 + Math.random()*340,
-      life: 0, max: 80+Math.random()*70, hue: Math.random()<0.5 ? "#ff2e1f" : "#7dff3a" });
+      life: 0, max: 80+Math.random()*70, hue: hues[Math.floor(Math.random()*hues.length)] });
   }
   for(const e of g.eyes){
     e.life++;
@@ -737,7 +856,7 @@ function drawEntities(){
       ctx.moveTo(-o.w/2, 0); ctx.lineTo(-o.w/3, -o.h);
       ctx.lineTo(o.w/3, -o.h*0.9); ctx.lineTo(o.w/2, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
-    } else {
+    } else if(o.kind==="spike"){
       // estalactita afilada que gotea
       ctx.fillStyle = "#120c1c";
       ctx.strokeStyle = "rgba(120,80,150,0.6)"; ctx.lineWidth=2;
@@ -745,6 +864,58 @@ function drawEntities(){
       ctx.moveTo(-o.w/2, -o.h); ctx.lineTo(o.w/2, -o.h);
       ctx.lineTo(0, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
+    } else if(o.kind==="echo"){
+      // ONDA DE SONIDO: anillos concéntricos pulsantes
+      ctx.strokeStyle = "rgba(0,230,230,0.9)";
+      ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 16;
+      for(let i=0;i<3;i++){
+        const rr = (o.w/2) * (0.4 + 0.3*i) + Math.sin(o.phase + i)*5;
+        ctx.lineWidth = 3 - i*0.6;
+        ctx.globalAlpha = 0.85 - i*0.22;
+        ctx.beginPath(); ctx.ellipse(0, -o.h/2, rr, rr*1.25, 0, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    } else if(o.kind==="artifact"){
+      // OBJETO DE OTRO MUNDO: cristal flotante que gira
+      ctx.rotate(o.spin);
+      ctx.fillStyle = "#0a2a0a";
+      ctx.strokeStyle = "#7dff3a"; ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#7dff3a"; ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.moveTo(0,-o.h/2); ctx.lineTo(o.w/2,0); ctx.lineTo(0,o.h/2); ctx.lineTo(-o.w/2,0);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if(o.kind==="anima"){
+      // ÁNIMA: fantasma translúcido
+      ctx.shadowColor = "#cfe0ff"; ctx.shadowBlur = 18;
+      ctx.fillStyle = "rgba(220,230,255,0.55)";
+      ctx.beginPath();
+      ctx.arc(0, -o.h*0.65, o.w/2, Math.PI, 0);
+      ctx.lineTo(o.w/2, 0);
+      for(let i=0;i<4;i++){ ctx.lineTo(o.w/2 - (i+0.5)*(o.w/4), (i%2?6:0)); }
+      ctx.lineTo(-o.w/2, 0); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#1a1030";
+      ctx.beginPath(); ctx.arc(-7,-o.h*0.65,3.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(7,-o.h*0.65,3.2,0,Math.PI*2); ctx.fill();
+    } else if(o.kind==="ufo"){
+      // OVNI con rayo
+      if(o.beam>0.4){
+        const bg = ctx.createLinearGradient(0,0,0,GROUND_Y-o.y);
+        bg.addColorStop(0, "rgba(120,220,255,0.5)");
+        bg.addColorStop(1, "rgba(120,220,255,0)");
+        ctx.fillStyle = bg;
+        ctx.beginPath();
+        ctx.moveTo(-10,0); ctx.lineTo(10,0); ctx.lineTo(26, GROUND_Y-o.y); ctx.lineTo(-26, GROUND_Y-o.y);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = "#1a2740";
+      ctx.strokeStyle = "#33ccff"; ctx.lineWidth = 2;
+      ctx.shadowColor = "#33ccff"; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.ellipse(0,-o.h*0.6,o.w/2,o.w/4,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(180,240,255,0.7)";
+      ctx.beginPath(); ctx.ellipse(0,-o.h*0.75,o.w/4,o.w/6,0,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
     }
     ctx.restore();
   }
@@ -794,9 +965,6 @@ if(HERO_SRC){
   heroImg.crossOrigin = "anonymous";
   heroImg.onload = ()=>{ heroReady = true; };
   heroImg.src = HERO_SRC;
-  // también úsala en la pantalla de inicio
-  const sh = document.getElementById("startHero");
-  if(sh) sh.innerHTML = '<img src="'+HERO_SRC+'" alt="hero">';
 }
 
 // Explorador dibujado (placeholder hasta tener la caricatura)
@@ -1091,13 +1259,19 @@ function openHowTo(){
   const inner = document.getElementById("modalInner");
   inner.innerHTML = `
     <div class="modal-title">Cómo jugar</div>
-    <div class="modal-sub">El Túnel Sin Fin</div>
+    <div class="modal-sub">Las 6 Leyendas del Parangueo</div>
     <div style="text-align:left;color:rgba(255,255,255,.8);font-size:12px;line-height:1.9;margin-bottom:16px">
       ◀ ▶ &nbsp; Cambia de carril para esquivar<br>
       ⤒ (o ESPACIO) &nbsp; Salta las rocas<br>
       🪙 &nbsp; Recoge VANTHEL Coins<br>
-      🏁 &nbsp; Llega al final del túnel (la luz)<br>
-      ❤ &nbsp; Pierdes una vida al chocar
+      🏁 &nbsp; Llega al final de cada leyenda<br>
+      ❤ &nbsp; Pierdes una vida al chocar<br><br>
+      <b style="color:var(--gold-light)">Cuidado con cada leyenda:</b><br>
+      🔊 Ecos: esquiva las ondas de sonido<br>
+      👽 Objetos: no saltes hacia los cristales<br>
+      👻 Ánimas: te persiguen, ¡muévete!<br>
+      🛸 OVNIs: evita sus rayos de luz<br>
+      🦕 El Monstruo: sobrevive a sus ataques
     </div>
     <button class="sec-btn modal-close" id="modalCloseBtn">ENTENDIDO</button>`;
   document.getElementById("modal").style.display = "flex";
