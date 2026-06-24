@@ -241,8 +241,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
    0) CONFIGURACIÓN GLOBAL
 --------------------------------------------------------------------- */
 const W = 480, H = 820;
-const GROUND_Y = 680;              // altura del suelo del túnel
+const GROUND_Y = 680;              // altura del suelo del túnel (línea del jugador)
+const SPAWN_Y = 110;               // fondo del túnel: desde aquí emergen las cosas
 const SAVE_KEY = "vanthel_save_v1";
+
+// Perspectiva: profundidad 0 (fondo, lejos) -> 1 (cerca del jugador)
+function odepth(y){ let t=(y-SPAWN_Y)/(GROUND_Y-SPAWN_Y); return t<0?0:(t>1.6?1.6:t); }
+function oscale(t){ return 0.42 + 0.58*Math.min(1,t); }   // tamaño según profundidad
+function projX(lane, y){ const s=oscale(odepth(y)); return W/2 + lane*70*s; }
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -281,18 +287,18 @@ const LEVELS = [
    1.b) CONFIGURACIÓN POR NIVEL (tema visual + mecánica)
 --------------------------------------------------------------------- */
 const LEVEL_CONFIG = {
-  1: { speed:4.2, top:"#020006", mid:"#09030f", accent:"rgba(120,90,160,", eyes:["#ff2e1f","#7dff3a"],
-       lamp:"#ffd27a", hazards:["rock","spike"], spawnBase:95, spawnMin:38, coinMin:45 },
+  1: { speed:4.2, top:"#050008", mid:"#0b0312", accent:"rgba(150,90,90,", eyes:["#ff2e1f","#ff6655"],
+       lamp:"#ffd27a", hazards:["rock","bat","vampire"], decor:["tomb","hand"], spawnBase:92, spawnMin:36, coinMin:45 },
   2: { speed:4.6, top:"#001014", mid:"#03181f", accent:"rgba(0,200,200,", eyes:["#00ffee","#00c864"],
-       lamp:"#7afff0", hazards:["echo","rock"], spawnBase:92, spawnMin:36, coinMin:42 },
+       lamp:"#7afff0", hazards:["echo","bat"], decor:["skull"], spawnBase:92, spawnMin:36, coinMin:42 },
   3: { speed:5.0, top:"#0a0014", mid:"#15002a", accent:"rgba(125,255,58,", eyes:["#7dff3a","#aaff00"],
-       lamp:"#caffa0", hazards:["artifact","spike"], spawnBase:90, spawnMin:36, coinMin:40 },
+       lamp:"#caffa0", hazards:["artifact","spike"], decor:["glyph"], spawnBase:90, spawnMin:36, coinMin:40 },
   4: { speed:5.2, top:"#04000d", mid:"#0a0618", accent:"rgba(200,210,255,", eyes:["#ffffff","#aabbff"],
-       lamp:"#dfe6ff", hazards:["anima","rock"], spawnBase:88, spawnMin:34, coinMin:40 },
+       lamp:"#dfe6ff", hazards:["anima","bat"], decor:["spirit"], spawnBase:88, spawnMin:34, coinMin:40 },
   5: { speed:5.6, top:"#00040f", mid:"#001a33", accent:"rgba(51,204,255,", eyes:["#33ccff","#ff33cc"],
-       lamp:"#aee6ff", hazards:["ufo","spike"], spawnBase:86, spawnMin:34, coinMin:38 },
+       lamp:"#aee6ff", hazards:["ufo","spike"], decor:["saucer"], spawnBase:86, spawnMin:34, coinMin:38 },
   6: { speed:5.2, top:"#001008", mid:"#02201a", accent:"rgba(0,255,136,", eyes:["#ff2e1f","#00ff88"],
-       lamp:"#9affd0", hazards:["rock","spike","anima","ufo"], spawnBase:70, spawnMin:28, coinMin:36, boss:true },
+       lamp:"#9affd0", hazards:["rock","vampire","anima","ufo","bat"], decor:["tomb"], spawnBase:70, spawnMin:28, coinMin:36, boss:true },
 };
 function cfg(){ return LEVEL_CONFIG[game.level.id] || LEVEL_CONFIG[1]; }
 
@@ -336,7 +342,7 @@ function newGame(levelId){
     won: false,
     // jugador
     player: {
-      x: 120, y: GROUND_Y, w: 46, h: 64,
+      x: W/2, y: GROUND_Y, w: 46, h: 64,
       vy: 0, onGround: true, lane: 0,
       invuln: 0,                 // frames de invulnerabilidad tras golpe
     },
@@ -344,8 +350,10 @@ function newGame(levelId){
     coins: [],
     particles: [],
     eyes: [],
+    decor: [],
     spawnTimer: 0,
     coinTimer: 0,
+    decorTimer: 0,
     bgOffset: 0,
     flashLight: 0,               // brillo de la "luz al final"
     // jefe final
@@ -421,32 +429,49 @@ function spawnObstacle(){
 
   if(kind==="rock"){
     // roca en el suelo: SALTAR para esquivar
-    game.obstacles.push({ kind:"rock", lane, x:laneX(lane), y:GROUND_Y, w:50, h:46, passed:false });
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:0, w:50, h:46, passed:false });
   } else if(kind==="spike"){
     // estalactita afilada: cambiar de carril
-    game.obstacles.push({ kind:"spike", lane, x:laneX(lane), y:GROUND_Y-10, w:42, h:60, passed:false });
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:0, w:42, h:64, passed:false });
   } else if(kind==="echo"){
-    // ONDA DE SONIDO: barra ancha que ocupa un carril (a veces dos). Cambiar de carril.
-    game.obstacles.push({ kind:"echo", lane, x:laneX(lane), y:GROUND_Y-40, w:64, h:84, passed:false, phase:Math.random()*6.28 });
-    if(Math.random()<0.45){ // a veces bloquea un segundo carril contiguo
+    // ONDA DE SONIDO: ocupa un carril (a veces dos). Cambiar de carril.
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:42, w:64, h:84, passed:false, phase:Math.random()*6.28 });
+    if(Math.random()<0.45){
       const l2 = lane===1 ? 0 : lane+1;
-      game.obstacles.push({ kind:"echo", lane:l2, x:laneX(l2), y:GROUND_Y-40, w:64, h:84, passed:false, phase:Math.random()*6.28 });
+      game.obstacles.push({ kind:"echo", lane:l2, y:SPAWN_Y, hover:42, w:64, h:84, passed:false, phase:Math.random()*6.28 });
     }
   } else if(kind==="artifact"){
-    // OBJETO FLOTANTE: a la altura de la cabeza. NO saltes hacia él; pásalo agachado en el suelo o cambia de carril.
-    game.obstacles.push({ kind:"artifact", lane, x:laneX(lane), y:GROUND_Y-96, w:46, h:46, passed:false, spin:0 });
+    // OBJETO FLOTANTE a la altura de la cabeza: no saltes hacia él.
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:96, w:46, h:46, passed:false, spin:0 });
   } else if(kind==="anima"){
     // ÁNIMA: te persigue deslizándose hacia tu carril.
-    game.obstacles.push({ kind:"anima", lane, x:laneX(lane), y:GROUND_Y-30, w:44, h:64, passed:false, drift:0.6, wob:Math.random()*6.28 });
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:34, w:44, h:64, passed:false, drift:0.7, wob:Math.random()*6.28, latOff:0 });
   } else if(kind==="ufo"){
-    // OVNI: aparece y dispara un rayo en su carril. Cambiar de carril.
-    game.obstacles.push({ kind:"ufo", lane, x:laneX(lane), y:GROUND_Y-20, w:56, h:70, passed:false, beam:0 });
+    // OVNI: dispara un rayo en su carril. Cambiar de carril.
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:60, w:56, h:40, passed:false, beam:0 });
+  } else if(kind==="bat"){
+    // MURCIÉLAGO: vuela en picada con vaivén. Esquívalo.
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:48, w:44, h:26, passed:false, flap:Math.random()*6.28, swoop:Math.random()*6.28, latOff:0 });
+    if(Math.random()<0.5){ // suelen salir en pareja
+      game.obstacles.push({ kind:"bat", lane, y:SPAWN_Y-30, hover:64, w:40, h:24, passed:false, flap:Math.random()*6.28, swoop:Math.random()*6.28, latOff:0 });
+    }
+  } else if(kind==="vampire"){
+    // VAMPIRO: se levanta de una tumba en su carril. Cambiar de carril.
+    game.obstacles.push({ kind, lane, y:SPAWN_Y, hover:0, w:48, h:78, passed:false, rise:0 });
   }
 }
 function spawnCoin(){
   const lane = Math.floor(Math.random()*3) - 1;
   const high = Math.random() < 0.4;
-  game.coins.push({ lane, x:laneX(lane), y: high ? GROUND_Y-110 : GROUND_Y-30, r:11, taken:false });
+  game.coins.push({ lane, y:SPAWN_Y, hover: high ? 96 : 24, r:11, taken:false });
+}
+function spawnDecor(){
+  const c = cfg();
+  const types = c.decor || [];
+  if(!types.length) return;
+  const kind = types[Math.floor(Math.random()*types.length)];
+  const side = Math.random()<0.5 ? -1 : 1;     // pared/orilla izquierda o derecha
+  game.decor.push({ kind, side, y:SPAWN_Y, t:0, seed:Math.random()*6.28 });
 }
 
 /* ---------------------------------------------------------------------
@@ -501,49 +526,74 @@ function update(dt){
     spawnCoin();
     g.coinTimer = c.coinMin + Math.random()*40;
   }
+  g.decorTimer -= dt;
+  if(g.decorTimer <= 0){
+    spawnDecor();
+    g.decorTimer = 26 + Math.random()*34;
+  }
 
   // jefe final (Nivel 6)
   if(g.boss) updateBoss(dt);
 
+  // mover decoración de fondo (tumbas, manos…) — no colisiona
+  for(const d of g.decor){ d.y += g.speed*dt*0.92; d.t = odepth(d.y); }
+  g.decor = g.decor.filter(d => d.y <= H + 60);
+
   // mover obstáculos + comportamiento por tipo
   for(const o of g.obstacles){
     o.y += g.speed*dt;
+    const t = odepth(o.y), s = oscale(t);
 
     // comportamientos especiales
     if(o.kind==="anima"){
-      // se desliza hacia el carril del jugador (persigue)
       o.wob += 0.08*dt;
-      const tx = laneX(p.lane) + Math.sin(o.wob)*10;
-      o.x += Math.sign(tx - o.x) * o.drift * dt;
+      const targetLat = (p.lane - o.lane)*LANE_W + Math.sin(o.wob)*14;
+      o.latOff += (targetLat - o.latOff) * 0.02 * dt;   // persigue tu carril
+    } else if(o.kind==="bat"){
+      o.flap += 0.5*dt;
+      o.swoop += 0.12*dt;
+      o.latOff = Math.sin(o.swoop)*64;                  // vaivén en picada
     } else if(o.kind==="artifact"){
       o.spin += 0.1*dt;
     } else if(o.kind==="ufo"){
-      o.beam = Math.max(0, Math.min(1, o.beam + (o.y>120 ? 0.04 : -0.02)*dt));
+      o.beam = Math.max(0, Math.min(1, o.beam + (t>0.45 ? 0.05 : -0.03)*dt));
     } else if(o.kind==="echo"){
       o.phase += 0.15*dt;
+    } else if(o.kind==="vampire"){
+      o.rise = Math.min(1, o.rise + 0.02*dt + (t>0.4?0.015*dt:0)); // se levanta de la tumba
     }
 
-    // hitbox (el rayo del OVNI llega hasta el suelo)
-    let hx=o.x-o.w/2, hy=o.y-o.h, hw=o.w, hh=o.h;
-    if(o.kind==="ufo" && o.beam>0.5){ hw=22; hx=o.x-11; hh=GROUND_Y - (o.y-o.h); }
+    // posición proyectada en pantalla
+    const sx = W/2 + (o.lane*LANE_W)*s + (o.latOff||0)*s;
+    const bodyH = (o.kind==="vampire") ? o.h*(o.rise||0) : o.h;
+    const by = o.y - (o.hover||0)*s;                    // base del cuerpo
+    let hx = sx - (o.w*s)/2, hy = by - bodyH*s, hw = o.w*s, hh = bodyH*s;
+    if(o.kind==="ufo" && o.beam>0.5){ hx = sx-12*s; hw = 24*s; hy = by; hh = GROUND_Y - by; }
+    o._sx = sx; o._s = s; o._t = t;                     // guardado para el render
 
-    if(!o.passed && p.invuln<=0 && rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, hx, hy, hw, hh)){
+    // colisión solo cuando está cerca del jugador
+    if(!o.passed && p.invuln<=0 && t>0.6 &&
+       rectHit(p.x-p.w/2, p.y-p.h, p.w, p.h, hx, hy, hw, hh)){
       o.passed = true;
       hitPlayer();
     }
-    if(o.y - o.h > H) o.passed = true;
+    if(o.y > H + 60) o.passed = true;
   }
-  g.obstacles = g.obstacles.filter(o => o.y - o.h <= H + 40);
+  g.obstacles = g.obstacles.filter(o => o.y <= H + 80);
 
   // mover coins
-  for(const c of g.coins){
-    c.y += g.speed*dt;
-    if(!c.taken && dist(p.x, p.y-p.h/2, c.x, c.y) < c.r + 26){
-      c.taken = true;
-      collectCoin(c);
+  for(const cn of g.coins){
+    cn.y += g.speed*dt;
+    const t = odepth(cn.y), s = oscale(t);
+    cn._sx = W/2 + (cn.lane*LANE_W)*s;
+    cn._sy = cn.y - (cn.hover||0)*s;
+    cn._s = s;
+    if(!cn.taken && t>0.7 && dist(p.x, p.y-p.h/2, cn._sx, cn._sy) < 30){
+      cn.taken = true;
+      collectCoin({x:cn._sx, y:cn._sy});
     }
   }
-  g.coins = g.coins.filter(c => !c.taken && c.y - c.r <= H + 40);
+  g.coins = g.coins.filter(cn => !cn.taken && cn.y <= H + 60);
 
   // partículas
   for(const pt of g.particles){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=0.3*dt; pt.life-=dt; }
@@ -770,7 +820,7 @@ function drawDarkness(){
   let flick = 0.85 + 0.15*Math.sin(t*13);
   if(Math.random()<0.035) flick -= 0.3;          // parpadeos bruscos
   const cx = p.x, cy = p.y - p.h/2;
-  const radius = (188 + 22*Math.sin(t*3)) * flick;
+  const radius = (228 + 26*Math.sin(t*3)) * flick;
   const r = ctx.createRadialGradient(cx, cy, radius*0.28, cx, cy, radius);
   r.addColorStop(0, "rgba(0,0,0,0)");
   r.addColorStop(0.55, "rgba(2,0,8,0.4)");
@@ -833,6 +883,130 @@ function drawGrain(){
   ctx.restore();
 }
 
+/* ---- Murciélago ---- */
+function drawBat(o){
+  const wing = Math.sin(o.flap), span=o.w, lift=wing*14;
+  ctx.save();
+  ctx.fillStyle = "#0b0510";
+  ctx.shadowColor = "#5a0010"; ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.quadraticCurveTo(-span*0.35,-12-lift, -span*0.62,-lift*0.4);
+  ctx.quadraticCurveTo(-span*0.42,2, -span*0.22,8);
+  ctx.quadraticCurveTo(-span*0.12,2, 0,4);
+  ctx.quadraticCurveTo(span*0.12,2, span*0.22,8);
+  ctx.quadraticCurveTo(span*0.42,2, span*0.62,-lift*0.4);
+  ctx.quadraticCurveTo(span*0.35,-12-lift, 0,0);
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#140811";
+  ctx.beginPath(); ctx.ellipse(0,2,5,8,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#ff3322"; ctx.shadowColor="#ff3322"; ctx.shadowBlur=8;
+  ctx.beginPath(); ctx.arc(-2,-1,1.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(2,-1,1.4,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+/* ---- Vampiro que se levanta de una tumba ---- */
+function drawVampire(o, groundLocal){
+  const rise = o.rise||0, h=o.h, w=o.w;
+  // lápida en el suelo
+  ctx.save();
+  ctx.fillStyle = "#16161e"; ctx.strokeStyle="rgba(160,160,180,0.4)"; ctx.lineWidth=2;
+  roundRect(ctx, -w*0.5, -h*0.32, w, h*0.32, 8); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(200,200,210,0.45)"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,-h*0.28); ctx.lineTo(0,-h*0.12); ctx.moveTo(-7,-h*0.22); ctx.lineTo(7,-h*0.22); ctx.stroke();
+  ctx.restore();
+  if(rise<=0.02) return;
+  const top = -h*rise;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(-w, top-22, w*2, (0-top)+22); ctx.clip(); // solo lo emergido
+  ctx.fillStyle = "#0c0010"; ctx.strokeStyle="rgba(140,0,35,0.75)"; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(-w*0.5, 4);
+  ctx.quadraticCurveTo(-w*0.64, top+h*0.42, -w*0.28, top+h*0.20);
+  ctx.lineTo(0, top);
+  ctx.lineTo(w*0.28, top+h*0.20);
+  ctx.quadraticCurveTo(w*0.64, top+h*0.42, w*0.5, 4);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#d8d0d0";
+  ctx.beginPath(); ctx.arc(0, top+h*0.16, w*0.2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#ff2222"; ctx.shadowColor="#ff2222"; ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.arc(-5, top+h*0.14, 2.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5, top+h*0.14, 2.4,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.moveTo(-3,top+h*0.21); ctx.lineTo(-1,top+h*0.21); ctx.lineTo(-2,top+h*0.25); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(3,top+h*0.21); ctx.lineTo(1,top+h*0.21); ctx.lineTo(2,top+h*0.25); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* ---- Decoración de fondo del túnel (tumbas, manos en las paredes, etc.) ---- */
+function drawDecor(){
+  const g = game;
+  for(const d of g.decor){
+    const t = d.t!=null ? d.t : odepth(d.y);
+    const s = oscale(t);
+    const sx = W/2 + (d.side*2.35*LANE_W)*s;   // pegado a la pared
+    ctx.save();
+    ctx.translate(sx, d.y); ctx.scale(s,s);
+    ctx.globalAlpha = Math.min(0.95, 0.25 + t*0.8);
+    if(d.kind==="tomb") drawTombDecor(d);
+    else if(d.kind==="hand") drawHandDecor(d);
+    else if(d.kind==="skull") drawSkullDecor(d);
+    else if(d.kind==="glyph") drawGlyphDecor(d);
+    else if(d.kind==="spirit") drawSpiritDecor(d);
+    else if(d.kind==="saucer") drawSaucerDecor(d);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+function drawTombDecor(d){
+  ctx.fillStyle = "#15151c"; ctx.strokeStyle="rgba(150,150,170,0.35)"; ctx.lineWidth=2;
+  roundRect(ctx,-22,-48,44,48,10); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(190,190,200,0.4)";
+  ctx.beginPath(); ctx.moveTo(0,-42); ctx.lineTo(0,-20); ctx.moveTo(-9,-35); ctx.lineTo(9,-35); ctx.stroke();
+}
+function drawHandDecor(d){
+  const dir = -d.side;                 // apunta hacia el centro del túnel
+  ctx.scale(dir,1);
+  ctx.fillStyle = "rgba(205,200,190,0.5)"; ctx.strokeStyle="rgba(80,70,70,0.5)"; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.ellipse(2,-30,9,13,0,0,Math.PI*2); ctx.fill();
+  ctx.lineCap = "round"; ctx.lineWidth = 4; ctx.strokeStyle="rgba(205,200,190,0.5)";
+  for(let i=0;i<4;i++){
+    ctx.beginPath();
+    ctx.moveTo(-4+i*4,-38);
+    ctx.lineTo(-4+i*4 + Math.sin(d.seed+i)*2, -56 - (i%2)*4);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(175,168,158,0.45)";
+  roundRect(ctx,-6,-24,14,18,4); ctx.fill();
+}
+function drawSkullDecor(d){
+  ctx.fillStyle = "rgba(220,220,210,0.5)";
+  ctx.beginPath(); ctx.arc(0,-30,12,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#06141a";
+  ctx.beginPath(); ctx.arc(-4,-31,3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4,-31,3,0,Math.PI*2); ctx.fill();
+  ctx.fillRect(-5,-22,10,5);
+}
+function drawGlyphDecor(d){
+  ctx.strokeStyle = "rgba(125,255,58,0.55)"; ctx.lineWidth=2; ctx.shadowColor="#7dff3a"; ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.arc(0,-30,12,0,Math.PI*2); ctx.moveTo(-8,-30); ctx.lineTo(8,-30); ctx.moveTo(0,-40); ctx.lineTo(0,-20); ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+function drawSpiritDecor(d){
+  ctx.fillStyle = "rgba(200,210,255,0.30)"; ctx.shadowColor="#aabbff"; ctx.shadowBlur=12;
+  ctx.beginPath(); ctx.arc(0,-34,10,Math.PI,0); ctx.lineTo(8,-18); ctx.lineTo(-8,-18); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+function drawSaucerDecor(d){
+  ctx.fillStyle = "rgba(51,204,255,0.35)"; ctx.shadowColor="#33ccff"; ctx.shadowBlur=12;
+  ctx.beginPath(); ctx.ellipse(0,-40,14,5,0,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
 function drawEntities(){
   const g = game, p = g.player;
 
@@ -840,13 +1014,19 @@ function drawEntities(){
   ctx.save();
   if(shakeAmt>0){ ctx.translate((Math.random()-0.5)*shakeAmt, (Math.random()-0.5)*shakeAmt); shakeAmt*=0.85; if(shakeAmt<0.5)shakeAmt=0; }
 
+  // decoración de fondo (tumbas, manos en las paredes…)
+  drawDecor();
+
   // coins
-  for(const c of g.coins){
+  for(const cn of g.coins){
+    const s = cn._s || 1;
+    const sx = (cn._sx!=null)?cn._sx:(W/2 + cn.lane*LANE_W*s);
+    const sy = (cn._sy!=null)?cn._sy:(cn.y-(cn.hover||0)*s);
     ctx.save();
-    ctx.translate(c.x, c.y);
+    ctx.translate(sx, sy); ctx.scale(s,s);
     ctx.fillStyle = "#f0c040";
     ctx.shadowColor = "#f0c040"; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,0,cn.r,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#7a5c00";
     ctx.font = "bold 11px Cinzel"; ctx.textAlign="center"; ctx.textBaseline="middle";
@@ -854,10 +1034,15 @@ function drawEntities(){
     ctx.restore();
   }
 
-  // obstáculos
+  // obstáculos (con perspectiva: emergen del fondo y se acercan)
   for(const o of g.obstacles){
+    const s = o._s || oscale(odepth(o.y));
+    const sx = (o._sx!=null)? o._sx : (W/2 + o.lane*LANE_W*s);
+    const by = o.y - (o.hover||0)*s;
+    const groundLocal = (GROUND_Y - by)/s;          // suelo en coords locales
     ctx.save();
-    ctx.translate(o.x, o.y);
+    ctx.translate(sx, by);
+    ctx.scale(s, s);
     if(o.kind==="rock"){
       ctx.fillStyle = "#160d12";
       ctx.strokeStyle = "rgba(150,50,50,0.55)"; ctx.lineWidth=2;
@@ -866,15 +1051,14 @@ function drawEntities(){
       ctx.lineTo(o.w/3, -o.h*0.9); ctx.lineTo(o.w/2, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
     } else if(o.kind==="spike"){
-      // estalactita afilada que gotea
+      // estalagmita afilada del suelo
       ctx.fillStyle = "#120c1c";
       ctx.strokeStyle = "rgba(120,80,150,0.6)"; ctx.lineWidth=2;
       ctx.beginPath();
-      ctx.moveTo(-o.w/2, -o.h); ctx.lineTo(o.w/2, -o.h);
-      ctx.lineTo(0, 0); ctx.closePath();
+      ctx.moveTo(-o.w/2, 0); ctx.lineTo(o.w/2, 0);
+      ctx.lineTo(0, -o.h); ctx.closePath();
       ctx.fill(); ctx.stroke();
     } else if(o.kind==="echo"){
-      // ONDA DE SONIDO: anillos concéntricos pulsantes
       ctx.strokeStyle = "rgba(0,230,230,0.9)";
       ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 16;
       for(let i=0;i<3;i++){
@@ -885,7 +1069,7 @@ function drawEntities(){
       }
       ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     } else if(o.kind==="artifact"){
-      // OBJETO DE OTRO MUNDO: cristal flotante que gira
+      ctx.translate(0, -o.h/2);
       ctx.rotate(o.spin);
       ctx.fillStyle = "#0a2a0a";
       ctx.strokeStyle = "#7dff3a"; ctx.lineWidth = 2.5;
@@ -895,7 +1079,6 @@ function drawEntities(){
       ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.shadowBlur = 0;
     } else if(o.kind==="anima"){
-      // ÁNIMA: fantasma translúcido
       ctx.shadowColor = "#cfe0ff"; ctx.shadowBlur = 18;
       ctx.fillStyle = "rgba(220,230,255,0.55)";
       ctx.beginPath();
@@ -908,23 +1091,26 @@ function drawEntities(){
       ctx.beginPath(); ctx.arc(-7,-o.h*0.65,3.2,0,Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(7,-o.h*0.65,3.2,0,Math.PI*2); ctx.fill();
     } else if(o.kind==="ufo"){
-      // OVNI con rayo
       if(o.beam>0.4){
-        const bg = ctx.createLinearGradient(0,0,0,GROUND_Y-o.y);
+        const bg = ctx.createLinearGradient(0,0,0,groundLocal);
         bg.addColorStop(0, "rgba(120,220,255,0.5)");
         bg.addColorStop(1, "rgba(120,220,255,0)");
         ctx.fillStyle = bg;
         ctx.beginPath();
-        ctx.moveTo(-10,0); ctx.lineTo(10,0); ctx.lineTo(26, GROUND_Y-o.y); ctx.lineTo(-26, GROUND_Y-o.y);
+        ctx.moveTo(-10,0); ctx.lineTo(10,0); ctx.lineTo(26, groundLocal); ctx.lineTo(-26, groundLocal);
         ctx.closePath(); ctx.fill();
       }
       ctx.fillStyle = "#1a2740";
       ctx.strokeStyle = "#33ccff"; ctx.lineWidth = 2;
       ctx.shadowColor = "#33ccff"; ctx.shadowBlur = 16;
-      ctx.beginPath(); ctx.ellipse(0,-o.h*0.6,o.w/2,o.w/4,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0,-o.h*0.3,o.w/2,o.w/4,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "rgba(180,240,255,0.7)";
-      ctx.beginPath(); ctx.ellipse(0,-o.h*0.75,o.w/4,o.w/6,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0,-o.h*0.45,o.w/4,o.w/6,0,0,Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
+    } else if(o.kind==="bat"){
+      drawBat(o);
+    } else if(o.kind==="vampire"){
+      drawVampire(o, groundLocal);
     }
     ctx.restore();
   }
