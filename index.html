@@ -58,6 +58,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .btn-jump:active,.btn-jump.pressed{background:rgba(255,180,0,.4);border-color:#ffd700;box-shadow:0 0 22px rgba(255,215,0,.6)}
 .btn-shoot{width:74px;height:74px;border-color:rgba(180,90,255,.55);color:#cc88ff;font-size:30px}
 .btn-shoot:active,.btn-shoot.pressed{background:rgba(150,60,255,.5);border-color:#cc88ff;box-shadow:0 0 26px rgba(180,90,255,.8)}
+.btn-duck{border-color:rgba(120,200,255,.45)}
+.btn-duck:active,.btn-duck.pressed{background:rgba(60,150,255,.45);border-color:#5ab0ff;box-shadow:0 0 18px rgba(90,176,255,.65)}
 
 /* ============ FLOAT TEXT ============ */
 .float-text{position:absolute;pointer-events:none;font-family:'Cinzel',serif;font-weight:700;font-size:15px;color:var(--gold-light);text-shadow:0 0 10px var(--gold);animation:floatUp .9s ease-out forwards;z-index:200}
@@ -162,6 +164,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <div class="ctrl-group">
       <div class="btn" id="btnLeft">◀</div>
       <div class="btn" id="btnRight">▶</div>
+      <div class="btn btn-duck" id="btnDuck">⤓</div>
     </div>
     <div class="ctrl-group">
       <div class="btn btn-jump" id="btnJump">⤒</div>
@@ -382,7 +385,7 @@ function newGame(levelId){
     level:lvl, data:d,
     lives:save.upgrades.maxLives, coinsRun:0, kills:0,
     running:true, won:false, scroll:0,
-    player:{ x:110, y:GROUND_Y, vy:0, onGround:true, invuln:0, shootCd:0, flash:0, walk:0 },
+    player:{ x:110, y:GROUND_Y, vy:0, onGround:true, invuln:0, shootCd:0, flash:0, walk:0, ducking:false, curH:96 },
     pballs:[], enemies:[], ebullets:[], particles:[],
     miniBoss:null, boss:null, bossSpawned:false,
     theme:{ sky1:d.sky1, sky2:d.sky2, ground:d.ground, accent:d.accent, prop:d.prop },
@@ -411,7 +414,7 @@ function buildScript(d){
 /* ---------------------------------------------------------------------
    INPUT
 --------------------------------------------------------------------- */
-const input = { left:false, right:false, shoot:false };
+const input = { left:false, right:false, shoot:false, down:false };
 function bindHold(el,key){
   const dn=(e)=>{ e.preventDefault(); input[key]=true; el.classList.add("pressed"); SFX.unlock(); };
   const up=(e)=>{ e.preventDefault(); input[key]=false; el.classList.remove("pressed"); };
@@ -428,6 +431,7 @@ function bindTap(el,fn){
 bindHold(document.getElementById("btnLeft"),"left");
 bindHold(document.getElementById("btnRight"),"right");
 bindHold(document.getElementById("btnShoot"),"shoot");
+bindHold(document.getElementById("btnDuck"),"down");
 bindTap(document.getElementById("btnJump"), tryJump);
 
 function tryJump(){
@@ -439,12 +443,14 @@ window.addEventListener("keydown",(e)=>{
   if(e.code==="ArrowLeft"||e.code==="KeyA") input.left=true;
   if(e.code==="ArrowRight"||e.code==="KeyD") input.right=true;
   if(e.code==="KeyJ"||e.code==="KeyK"||e.code==="KeyF") input.shoot=true;
+  if(e.code==="ArrowDown"||e.code==="KeyS"){ e.preventDefault(); input.down=true; }
   if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW"){ e.preventDefault(); if(!e.repeat) tryJump(); }
 });
 window.addEventListener("keyup",(e)=>{
   if(e.code==="ArrowLeft"||e.code==="KeyA") input.left=false;
   if(e.code==="ArrowRight"||e.code==="KeyD") input.right=false;
   if(e.code==="KeyJ"||e.code==="KeyK"||e.code==="KeyF") input.shoot=false;
+  if(e.code==="ArrowDown"||e.code==="KeyS") input.down=false;
 });
 
 /* ---------------------------------------------------------------------
@@ -479,6 +485,9 @@ function update(dt){
   p.vy += 0.8*dt; p.y += p.vy*dt;
   if(p.y>=GROUND_Y){ p.y=GROUND_Y; p.vy=0; p.onGround=true; }
   if(p.onGround) p.walk += 0.3*dt;
+  // agacharse (solo en el suelo): baja la altura para esquivar disparos
+  p.ducking = !!input.down && p.onGround;
+  p.curH = p.ducking ? 36 : 96;
   if(p.invuln>0) p.invuln-=dt;
   if(p.flash>0) p.flash-=dt;
 
@@ -501,8 +510,9 @@ function update(dt){
 /* ---- balas moradas del jugador ---- */
 function fireBall(){
   const p=game.player;
-  game.pballs.push({ x:p.x+28, y:p.y-64, vx:9, r:9 });
-  if(save.abilities.includes("Doble disparo")) game.pballs.push({ x:p.x+28, y:p.y-40, vx:9, r:8 });
+  const y = p.ducking ? p.y-28 : p.y-64;
+  game.pballs.push({ x:p.x+28, y:y, vx:9, r:9 });
+  if(save.abilities.includes("Doble disparo")) game.pballs.push({ x:p.x+28, y:y+24, vx:9, r:8 });
   p.flash=6; SFX.shoot();
 }
 function updatePBalls(dt){
@@ -554,7 +564,8 @@ function updateEBullets(dt){
   const g=game, p=g.player;
   for(const b of g.ebullets){
     b.x+=b.vx*dt; b.y+=b.vy*dt;
-    if(p.invuln<=0 && Math.hypot(b.x-p.x, b.y-(p.y-40))<26){ b.dead=true; hurtPlayer(); }
+    // caja del jugador (al agacharse la cabeza baja y los disparos altos pasan)
+    if(p.invuln<=0 && b.x>p.x-18 && b.x<p.x+18 && b.y>p.y-p.curH && b.y<p.y-2){ b.dead=true; hurtPlayer(); }
   }
   g.ebullets = g.ebullets.filter(b=>!b.dead && b.x>-30 && b.x<W+30 && b.y>-30 && b.y<H+30);
 }
@@ -756,10 +767,11 @@ function drawPlayer(){
   const blink=p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha=blink?0.4:1;
   ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0,2,26,7,0,0,Math.PI*2); ctx.fill();
-  const dh=116, dw=dh*0.667;
+  const dh = p.ducking ? 74 : 116;
+  const dw = (p.ducking ? 0.86 : 0.667) * 116;
   if(heroReady) ctx.drawImage(heroImg,-dw/2,-dh,dw,dh);
-  else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-96,40,96); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-100,15,0,Math.PI*2); ctx.fill(); }
-  if(p.flash>0){ ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(30,-58,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
+  else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-(dh*0.83),40,dh*0.83); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-(dh*0.86),15,0,Math.PI*2); ctx.fill(); }
+  if(p.flash>0){ const fy=p.ducking?-26:-58; ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(30,fy,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
   ctx.restore();
 }
 function drawPBalls(){
@@ -1024,6 +1036,7 @@ function openHowTo(){
     <div style="text-align:left;color:rgba(255,255,255,.82);font-size:12px;line-height:1.9;margin-bottom:16px">
       ◀ ▶ &nbsp; Muévete (izquierda/derecha)<br>
       ⤒ &nbsp; Salta<br>
+      ⤓ &nbsp; Agáchate para esquivar disparos<br>
       🟣 &nbsp; Dispara bolas moradas (mantén presionado)<br>
       🎯 &nbsp; Acaba con las oleadas de enemigos<br>
       💥 &nbsp; Sobrevive al mini-jefe y al jefe final<br>
