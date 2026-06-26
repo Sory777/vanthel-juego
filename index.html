@@ -800,23 +800,40 @@ function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w
 function drawPlayer(){
   const p=game.player;
   ctx.save();
-  const bob=(p.onGround && !p.ducking)?Math.abs(Math.sin(p.walk))*4:0;
-  const lean=(p.onGround && !p.ducking)?Math.sin(p.walk)*0.05:0;
+  const bob=(p.onGround && !p.ducking)?Math.abs(Math.sin(p.walk))*3:0;
   ctx.translate(p.x, p.y-bob);
   const blink=p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha=blink?0.45:1;
   ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0,2,26,7,0,0,Math.PI*2); ctx.fill();
-  // TU PERSONAJE COMPLETO (sin recortes)
-  const dh = p.ducking ? 80 : 116;
-  const dw = (p.ducking ? 0.9 : 0.667) * 116;
-  ctx.rotate(lean);
-  if(heroReady) ctx.drawImage(heroImg, -dw/2, -dh, dw, dh);
-  else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+14,15,0,Math.PI*2); ctx.fill(); }
-  ctx.rotate(-lean);
+
+  if(!heroReady){
+    const dh=p.ducking?80:116; ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh);
+    ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+14,15,0,Math.PI*2); ctx.fill();
+  } else if(p.ducking){
+    const dh=80, dw=116*0.9; ctx.drawImage(heroImg,-dw/2,-dh,dw,dh);
+  } else {
+    const iw=heroImg.naturalWidth||1024, ih=heroImg.naturalHeight||1536;
+    const dh=116, dw=dh*0.667, torsoFrac=0.60;
+    const hipY=-dh*(1-torsoFrac), legDH=dh*(1-torsoFrac), legDW=dw/2;
+    const legSY=ih*torsoFrac, legSH=ih*(1-torsoFrac), legSW=iw/2;
+    const ang = p.onGround ? Math.sin(p.walk)*0.38 : 0.28;   // balanceo de piernas
+    // piernas (pixeles de TU imagen) girando desde la cadera
+    drawLegSlice(0, legSY, legSW, legSH, -dw/2, hipY, legDW, legDH, -dw/4, hipY, ang);
+    drawLegSlice(legSW, legSY, legSW, legSH, 0, hipY, legDW, legDH, dw/4, hipY, -ang);
+    // torso COMPLETO encima (tapa la unión)
+    const tFrac=torsoFrac+0.05;
+    ctx.drawImage(heroImg, 0,0, iw, ih*tFrac, -dw/2, -dh, dw, dh*tFrac);
+  }
   // escudo
   if(p.shieldT>0){ ctx.save(); ctx.globalAlpha=0.45+0.2*Math.sin(performance.now()/120); ctx.strokeStyle="#66ccff"; ctx.lineWidth=3; ctx.shadowColor="#66ccff"; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(0,-52,50,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
   // destello morado al lanzar la orbe
   if(p.flash>0){ const fy=p.ducking?-30:-60; ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(34,fy,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
+  ctx.restore();
+}
+function drawLegSlice(sx,sy,sw,sh, dx,dy,dw,dh, px,py, ang){
+  ctx.save();
+  ctx.translate(px,py); ctx.rotate(ang); ctx.translate(-px,-py);
+  ctx.drawImage(heroImg, sx,sy,sw,sh, dx,dy,dw,dh);
   ctx.restore();
 }
 function drawLeg(hipX,phase,legLen){
