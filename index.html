@@ -79,6 +79,15 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #notification.show{top:14px}
 #notification.gold{border-color:var(--gold);color:var(--gold-light)}
 
+/* ===== BANNER CINEMÁTICO DE MISIÓN ===== */
+#cineBanner{position:absolute;top:36%;left:0;right:0;text-align:center;z-index:120;pointer-events:none;opacity:0;transform:scale(.82);transition:opacity .25s ease,transform .25s ease;padding:0 18px}
+#cineBanner.show{opacity:1;transform:scale(1)}
+#cbTitle{font-family:'Cinzel Decorative',cursive;font-size:34px;line-height:1.1;letter-spacing:2px;color:#fff;text-shadow:0 0 18px #000,0 0 32px #000}
+#cbSub{font-family:'Cinzel',serif;font-size:14px;letter-spacing:2px;color:rgba(255,255,255,.92);margin-top:8px;text-shadow:0 0 10px #000,0 0 4px #000}
+#cineBanner.red #cbTitle{color:#ff5a44;text-shadow:0 0 22px #ff0000aa,0 0 6px #000}
+#cineBanner.gold #cbTitle{color:#f0c040;text-shadow:0 0 22px #c9a227aa,0 0 6px #000}
+#cineBanner.purple #cbTitle{color:#cc88ff;text-shadow:0 0 22px #9b59b6aa,0 0 6px #000}
+
 /* ============ HUB / CRATER MAP ============ */
 #hubScreen{justify-content:flex-start;padding-top:30px;overflow-y:auto}
 .hub-header{font-family:'Cinzel Decorative',cursive;font-size:22px;color:var(--gold);text-shadow:0 0 20px #c9a22766;letter-spacing:2px;margin-bottom:2px}
@@ -108,6 +117,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .score-display{color:var(--gold-light);font-size:14px;letter-spacing:3px;margin-bottom:6px}
 .coins-display{color:var(--purple-light);font-size:13px;letter-spacing:2px;margin-bottom:22px;display:flex;align-items:center;gap:6px}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:400px}
+.reward-line{color:var(--gold-light);font-size:13px;line-height:1.8;letter-spacing:1px;margin-bottom:20px;text-shadow:0 0 10px #c9a22755}
 
 /* ============ LEGEND CARD POPUP ============ */
 #legendCard{position:absolute;inset:0;background:rgba(0,0,0,.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:400;padding:30px;text-align:center;backdrop-filter:blur(3px)}
@@ -150,6 +160,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
   <!-- ============ NOTIFICATION ============ -->
   <div id="notification"></div>
+
+  <!-- ============ CINEMATIC MISSION BANNER ============ -->
+  <div id="cineBanner"><div id="cbTitle"></div><div id="cbSub"></div></div>
 
   <!-- ============ HUD (during gameplay) ============ -->
   <div id="hud" class="hidden">
@@ -208,6 +221,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <h1 id="endTitle" class="lose">FIN</h1>
     <div class="score-display" id="endDist">0 m alcanzados</div>
     <div class="coins-display"><span class="coin-dot"></span><span id="endCoins">0</span> VANTHEL Coins ganadas</div>
+    <div id="endReward" class="reward-line"></div>
     <div class="btn-row">
       <button class="sec-btn gold" id="btnRetry">↺ REINTENTAR</button>
       <button class="sec-btn" id="btnWatchAd">📺 VER ANUNCIOS · +1 VIDA</button>
@@ -308,6 +322,45 @@ const LEVEL_CONFIG = {
 function cfg(){ return LEVEL_CONFIG[game.level.id] || LEVEL_CONFIG[1]; }
 
 /* ---------------------------------------------------------------------
+   1.c) MISIONES estilo METAL SLUG (acción continua, sin diálogos)
+   Cada misión: intro -> oleadas -> evento -> mini-jefe -> NUEVA ZONA
+   -> oleadas -> evento -> JEFE FINAL (fases) -> recompensa.
+--------------------------------------------------------------------- */
+const MISSION = {
+  1:{ objective:"Cruza el túnel sin fin y enfrenta lo que acecha al fondo",
+      ev1:{n:"¡DERRUMBE!",k:"derrumbe"}, ev2:{n:"¡EMBOSCADA!",k:"emboscada"},
+      mid:{n:"VIGÍA DEL TÚNEL",icon:"🦇"}, boss:{n:"EL GUARDIÁN DEL FONDO",icon:"👁️"},
+      zone:{name:"LA CRIPTA",top:"#0a0306",mid:"#1a0608",accent:"rgba(200,70,70,",eyes:["#ff2e1f","#ff8866"],lamp:"#ffcaa0",decor:["tomb","skull"]},
+      reward:{xp:120, ability:"Linterna mejorada"} },
+  2:{ objective:"Sigue los ecos hasta su origen en la caverna",
+      ev1:{n:"¡ESTRUENDO!",k:"derrumbe"}, ev2:{n:"¡ENJAMBRE!",k:"estampida"},
+      mid:{n:"ECO VIVIENTE",icon:"🔊"}, boss:{n:"LA VOZ DEL CRÁTER",icon:"📢"},
+      zone:{name:"GRUTA DE CRISTAL",top:"#001018",mid:"#00242e",accent:"rgba(0,230,200,",eyes:["#00ffee","#66ffd0"],lamp:"#aef0ff",decor:["skull","glyph"]},
+      reward:{xp:160, ability:"Doble salto"} },
+  3:{ objective:"Recupera los artefactos antes de que despierten",
+      ev1:{n:"¡SOBRECARGA!",k:"tormenta"}, ev2:{n:"¡EMBOSCADA ALIEN!",k:"emboscada"},
+      mid:{n:"DRON CENTINELA",icon:"🛰️"}, boss:{n:"NÚCLEO DE OTRO MUNDO",icon:"👽"},
+      zone:{name:"LABORATORIO ALIEN",top:"#0a0014",mid:"#1c0438",accent:"rgba(160,255,90,",eyes:["#aaff00","#ddff66"],lamp:"#e6ffb0",decor:["glyph","artifact"]},
+      reward:{xp:200, ability:"Escudo de energía"} },
+  4:{ objective:"Atraviesa el santuario sin que las ánimas te atrapen",
+      ev1:{n:"¡VENTISCA!",k:"tormenta"}, ev2:{n:"¡ALMAS EN PENA!",k:"emboscada"},
+      mid:{n:"ÁNIMA MAYOR",icon:"👻"}, boss:{n:"EL ALMA ANCESTRAL",icon:"💀"},
+      zone:{name:"EL MÁS ALLÁ",top:"#04000d",mid:"#120a24",accent:"rgba(180,200,255,",eyes:["#ffffff","#ccddff"],lamp:"#eef2ff",decor:["spirit","tomb"]},
+      reward:{xp:240, ability:"Dash espectral"} },
+  5:{ objective:"Alcanza el portal antes de que se cierre",
+      ev1:{n:"¡TORMENTA ELÉCTRICA!",k:"tormenta"}, ev2:{n:"¡INVASIÓN OVNI!",k:"estampida"},
+      mid:{n:"CAZA OVNI",icon:"🛸"}, boss:{n:"LA NAVE NODRIZA",icon:"🛸"},
+      zone:{name:"EL PORTAL",top:"#00040f",mid:"#06224a",accent:"rgba(80,180,255,",eyes:["#33ccff","#ff66dd"],lamp:"#cdeaff",decor:["saucer","glyph"]},
+      reward:{xp:300, ability:"Salto propulsado"} },
+  6:{ objective:"Desciende a la laguna y derrota al monstruo del cráter",
+      ev1:{n:"¡MAREJADA!",k:"tormenta"}, ev2:{n:"¡ATAQUE EN MASA!",k:"emboscada"},
+      mid:{n:"CRÍA DEL MONSTRUO",icon:"🐊"}, boss:{n:"EL MONSTRUO DE LA LAGUNA",icon:"🦕"},
+      zone:{name:"LA LAGUNA",top:"#001008",mid:"#03281d",accent:"rgba(0,255,150,",eyes:["#ff2e1f","#00ff88"],lamp:"#a8ffd0",decor:["tomb","spirit"]},
+      reward:{xp:500, ability:"¡Leyenda completada!"} },
+};
+function mcfg(){ return MISSION[game.level.id] || MISSION[1]; }
+
+/* ---------------------------------------------------------------------
    2) ESTADO PERSISTENTE DEL JUGADOR (localStorage)
 --------------------------------------------------------------------- */
 const defaultSave = {
@@ -316,6 +369,9 @@ const defaultSave = {
   legendsFound: [],             // ids de leyendas con carta descubierta
   redeemedCodes: [],            // códigos ya canjeados
   upgrades: { maxLives: 3 },    // mejoras compradas en tienda
+  xp: 0,                        // experiencia acumulada
+  abilities: [],                // habilidades desbloqueadas
+  muted: false,
 };
 let save = loadSave();
 
@@ -363,7 +419,12 @@ function newGame(levelId){
     bgOffset: 0,
     flashLight: 0,               // brillo de la "luz al final"
     // jefe final
-    boss: c.boss ? { y:-160, targetY:90, mouth:0, attackTimer:60 } : null,
+    boss: null,
+    // sistema de misión (Metal Slug)
+    curTheme: { top:c.top, mid:c.mid, accent:c.accent, eyes:c.eyes, lamp:c.lamp, decor:c.decor },
+    mission: { fired:{}, zoneName:"", weather:0, weatherT:0 },
+    midBoss: null,
+    waveMul: 1,
   };
 }
 
@@ -477,8 +538,7 @@ function spawnCoin(){
   game.coins.push({ lane, y:SPAWN_Y, hover: high ? 96 : 24, r:11, taken:false });
 }
 function spawnDecor(){
-  const c = cfg();
-  const types = c.decor || [];
+  const types = (game.curTheme && game.curTheme.decor) || cfg().decor || [];
   if(!types.length) return;
   const kind = types[Math.floor(Math.random()*types.length)];
   const side = Math.random()<0.5 ? -1 : 1;     // pared/orilla izquierda o derecha
@@ -532,12 +592,15 @@ function update(dt){
 
   if(p.invuln > 0) p.invuln -= dt;
 
-  // spawns (ritmo según el nivel)
+  // ===== SISTEMA DE MISIÓN (intro, oleadas, eventos, jefes, zona) =====
+  updateMission(dt);
+
+  // spawns (ritmo según el nivel y la intensidad de la oleada)
   const c = cfg();
   g.spawnTimer -= dt;
   if(g.spawnTimer <= 0){
     spawnObstacle();
-    g.spawnTimer = Math.max(c.spawnMin, c.spawnBase - g.distance*0.03);
+    g.spawnTimer = Math.max(c.spawnMin*0.7, (c.spawnBase - g.distance*0.03) / g.waveMul);
   }
   g.coinTimer -= dt;
   if(g.coinTimer <= 0){
@@ -550,8 +613,12 @@ function update(dt){
     g.decorTimer = 26 + Math.random()*34;
   }
 
-  // jefe final (Nivel 6)
+  // mini-jefe y jefe final
+  if(g.midBoss) updateMidBoss(dt);
   if(g.boss) updateBoss(dt);
+
+  // clima (tormenta/ventisca)
+  if(g.mission.weather>0) g.mission.weatherT += dt;
 
   // mover decoración de fondo (tumbas, manos…) — no colisiona
   for(const d of g.decor){ d.y += g.speed*dt*0.92; d.t = odepth(d.y); }
@@ -664,18 +731,114 @@ function winLevel(){
 }
 
 /* ---------------------------------------------------------------------
-   8.b) JEFE FINAL — El Monstruo de la Laguna (Nivel 6)
+   8.a) MISIÓN ESTILO METAL SLUG — línea de tiempo por progreso
+--------------------------------------------------------------------- */
+function updateMission(dt){
+  const g = game, m = g.mission, M = mcfg();
+  const p = g.distance / g.level.goal;          // progreso 0..1
+  g.waveMul = 1 + Math.min(0.9, p*0.9);         // las oleadas se intensifican
+
+  const once = (key, fn)=>{ if(!m.fired[key]){ m.fired[key]=true; fn(); } };
+
+  if(p>=0.002) once("intro", ()=> showBanner("MISIÓN "+g.level.id, M.objective, "gold"));
+  if(p>=0.20)  once("ev1",   ()=>{ triggerEvent(M.ev1.k); showBanner(M.ev1.n, "", "red"); });
+  if(p>=0.40)  once("mid",   ()=>{ startMidBoss(M.mid); showBanner("MINI-JEFE", M.mid.icon+"  "+M.mid.n, "purple"); });
+  if(p>=0.56)  once("zone",  ()=>{ enterNewZone(M.zone); showBanner("NUEVA ZONA", M.zone.name, "gold"); });
+  if(p>=0.72)  once("ev2",   ()=>{ triggerEvent(M.ev2.k); showBanner(M.ev2.n, "", "red"); });
+  if(p>=0.85)  once("boss",  ()=>{ startFinalBoss(M.boss); showBanner("¡JEFE FINAL!", M.boss.icon+"  "+M.boss.n, "red"); });
+}
+
+let bannerTimer = null;
+function showBanner(title, sub, cls){
+  const b = document.getElementById("cineBanner");
+  if(!b) return;
+  document.getElementById("cbTitle").textContent = title;
+  document.getElementById("cbSub").textContent = sub || "";
+  b.className = "show " + (cls||"");
+  shake();
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(()=>{ b.className = ""; }, 2300);
+}
+
+function spawnEnemyBurst(n){
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{ if(game && game.running && state===STATE.PLAYING) spawnObstacle(); }, i*150);
+  }
+}
+function triggerEvent(kind){
+  const g = game;
+  if(kind==="derrumbe"){
+    for(let i=0;i<5;i++){
+      const lane=(i%3)-1;
+      game.obstacles.push({kind:"rock",lane,y:SPAWN_Y-i*22,hover:0,w:50,h:46,passed:false});
+    }
+    shake(); SFX.bossRoar();
+  } else if(kind==="emboscada"){
+    spawnEnemyBurst(7); SFX.bossRoar();
+  } else if(kind==="estampida"){
+    for(let i=0;i<6;i++){
+      const lane=(i%3)-1;
+      game.obstacles.push({kind:"bat",lane,y:SPAWN_Y-i*26,hover:48+Math.random()*28,w:42,h:26,passed:false,flap:Math.random()*6,swoop:Math.random()*6,latOff:0});
+    }
+    SFX.scare();
+  } else if(kind==="tormenta"){
+    g.mission.weather = 1; g.mission.weatherT = 0;
+    SFX.bossRoar();
+  }
+}
+
+function enterNewZone(zone){
+  const g = game;
+  g.curTheme = { top:zone.top, mid:zone.mid, accent:zone.accent, eyes:zone.eyes, lamp:zone.lamp, decor:zone.decor };
+  g.mission.zoneName = zone.name;
+  g.midBoss = null;                 // el mini-jefe se retira
+  g.decor.length = 0;               // entra la decoración de la nueva zona
+  burst(W/2, GROUND_Y-40, "#ffffff", 22);
+}
+
+/* ---- Mini-jefe (a mitad del nivel) ---- */
+function startMidBoss(mid){
+  game.midBoss = { y:-120, targetY:120, t:0, attackTimer:48, icon:mid.icon, name:mid.n };
+}
+function updateMidBoss(dt){
+  const mb = game.midBoss;
+  mb.y += (mb.targetY - mb.y)*0.04*dt;
+  mb.t += dt;
+  mb.attackTimer -= dt;
+  if(mb.attackTimer<=0){ spawnObstacle(); shake(); mb.attackTimer = 42 + Math.random()*32; }
+}
+function drawMidBoss(){
+  if(!game || !game.midBoss) return;
+  const mb = game.midBoss, t = performance.now()/1000;
+  ctx.save();
+  ctx.translate(W/2 + Math.sin(t*1.2)*46, mb.y);
+  ctx.font = "60px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.shadowColor = "#ff3333"; ctx.shadowBlur = 22;
+  ctx.fillText(mb.icon, 0, 0);
+  ctx.restore();
+}
+
+/* ---- Jefe final con fases ---- */
+function startFinalBoss(boss){
+  game.boss = { y:-160, targetY:90, mouth:0, attackTimer:48, icon:boss.icon, name:boss.n, phase:1 };
+}
+
+/* ---------------------------------------------------------------------
+   8.b) JEFE FINAL — combate por fases (aprovecha cada leyenda)
 --------------------------------------------------------------------- */
 function updateBoss(dt){
-  const b = game.boss;
+  const b = game.boss, g = game;
   b.y += (b.targetY - b.y) * 0.03 * dt;            // emerge desde arriba
   b.mouth = 0.5 + 0.5*Math.sin(performance.now()/280);
+  // fases: cuanto más cerca de la meta, más feroz
+  const rem = (g.level.goal - g.distance)/g.level.goal;
+  b.phase = rem<0.05 ? 3 : rem<0.10 ? 2 : 1;
   b.attackTimer -= dt;
   if(b.attackTimer <= 0){
-    spawnObstacle();                               // ráfaga extra de ataque
+    for(let i=0;i<b.phase;i++) spawnObstacle();    // más ataques en fases altas
     shake();
     SFX.bossRoar();
-    b.attackTimer = 60 + Math.random()*55;
+    b.attackTimer = (b.phase===3?38 : b.phase===2?52 : 68) + Math.random()*28;
   }
 }
 
@@ -752,8 +915,10 @@ function render(){
     drawTunnel();
     drawEntities();
     drawDarkness();                              // linterna + oscuridad
-    drawBoss();                                  // jefe final (solo Nivel 6)
+    drawMidBoss();                               // mini-jefe (mitad de misión)
+    drawBoss();                                  // jefe final (con fases)
     drawLurkingEyes(game, performance.now()/1000); // ojos acechando
+    drawWeather();                               // tormenta / ventisca
     drawVignette();                              // bordes oscuros
     drawGrain();                                 // ruido tipo VHS/terror
   }
@@ -761,9 +926,9 @@ function render(){
 
 function drawTunnel(){
   const g = game;
-  const c = cfg();
+  const c = g.curTheme || cfg();
   const t = performance.now()/1000;
-  // fondo según el tema del nivel
+  // fondo según el tema de la ZONA actual
   const grad = ctx.createLinearGradient(0,0,0,H);
   grad.addColorStop(0, c.top);
   grad.addColorStop(0.5, c.mid);
@@ -857,7 +1022,7 @@ function drawDarkness(){
 function drawLurkingEyes(g, t){
   if(!g.eyes) g.eyes = [];
   if(Math.random() < 0.012 && g.eyes.length < 3){
-    const hues = (LEVEL_CONFIG[g.level.id]||LEVEL_CONFIG[1]).eyes;
+    const hues = (game.curTheme && game.curTheme.eyes) || (LEVEL_CONFIG[g.level.id]||LEVEL_CONFIG[1]).eyes;
     g.eyes.push({ x: 55 + Math.random()*(W-110), y: 120 + Math.random()*340,
       life: 0, max: 80+Math.random()*70, hue: hues[Math.floor(Math.random()*hues.length)] });
   }
@@ -875,6 +1040,23 @@ function drawLurkingEyes(g, t){
     ctx.restore();
   }
   g.eyes = g.eyes.filter(e => e.life < e.max);
+}
+
+// Clima: lluvia/ventisca durante eventos de tormenta
+function drawWeather(){
+  if(!game || !game.mission || game.mission.weather<=0) return;
+  const tt = game.mission.weatherT;
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,25,0.18)"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = "rgba(180,205,255,0.28)"; ctx.lineWidth = 1.4;
+  for(let i=0;i<70;i++){
+    const x = (i*61 + tt*7) % W;
+    const y = ((i*97 + tt*26) % (H+40)) - 20;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-7, y+16); ctx.stroke();
+  }
+  // relámpago ocasional
+  if(Math.random()<0.012){ ctx.fillStyle="rgba(255,255,255,0.18)"; ctx.fillRect(0,0,W,H); }
+  ctx.restore();
 }
 
 // Viñeta: esquinas siempre oscuras
@@ -1279,6 +1461,7 @@ function endRun(won){
   if(won) SFX.win(); else SFX.lose();
   // guardar coins ganadas
   save.coins += game.coinsRun;
+  game._reward = null;
   if(won){
     // desbloquear siguiente nivel + carta de leyenda
     const nextId = game.level.id + 1;
@@ -1288,6 +1471,17 @@ function endRun(won){
     if(!save.legendsFound.includes(game.level.id)){
       save.legendsFound.push(game.level.id);
     }
+    // recompensa de misión: XP + habilidad
+    const M = MISSION[game.level.id] || MISSION[1];
+    const rw = M.reward || { xp:100, ability:"" };
+    save.xp = (save.xp||0) + rw.xp;
+    let newAbility = false;
+    if(rw.ability && !(save.abilities||[]).includes(rw.ability)){
+      save.abilities = save.abilities || [];
+      save.abilities.push(rw.ability);
+      newAbility = true;
+    }
+    game._reward = { xp:rw.xp, ability:rw.ability, newAbility, nextId };
   }
   persist();
   // mostrar carta de leyenda primero si ganó, luego pantalla final
@@ -1314,6 +1508,23 @@ function showEnd(won){
   }
   document.getElementById("endDist").textContent = Math.floor(game.distance) + " m alcanzados";
   document.getElementById("endCoins").textContent = game.coinsRun;
+  // recompensa de misión
+  const rwEl = document.getElementById("endReward");
+  if(won && game._reward){
+    const r = game._reward;
+    let html = `⭐ +${r.xp} XP`;
+    if(r.ability){
+      html += r.newAbility
+        ? `<br>🔓 Nueva habilidad: <b>${r.ability}</b>`
+        : `<br>✨ ${r.ability}`;
+    }
+    const next = LEVELS.find(l=>l.id===r.nextId);
+    if(next) html += `<br>🗺 Misión desbloqueada: <b>${next.name}</b>`;
+    rwEl.innerHTML = html;
+    rwEl.style.display = "";
+  } else {
+    rwEl.style.display = "none";
+  }
 }
 
 /* ---------------------------------------------------------------------
