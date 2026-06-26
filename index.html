@@ -800,32 +800,23 @@ function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w
 function drawPlayer(){
   const p=game.player;
   ctx.save();
-  const bob=(p.onGround && !p.ducking)?Math.abs(Math.sin(p.walk))*3:0;
+  const bob=(p.onGround && !p.ducking)?Math.abs(Math.sin(p.walk))*4:0;
+  const lean=(p.onGround && !p.ducking)?Math.sin(p.walk)*0.05:0;
   ctx.translate(p.x, p.y-bob);
   const blink=p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha=blink?0.45:1;
   ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0,2,26,7,0,0,Math.PI*2); ctx.fill();
-
-  if(p.ducking){
-    const dh=74, dw=116*0.86;
-    if(heroReady) ctx.drawImage(heroImg,-dw/2,-dh,dw,dh);
-    else { ctx.fillStyle="#2b2336"; ctx.fillRect(-22,-dh*0.8,44,dh*0.8); }
-  } else {
-    const dh=116, dw=dh*0.667, bodyFrac=0.66, legLen=dh*(1-bodyFrac), hipY=-legLen;
-    // piernas animadas (rodillas que se mueven al caminar)
-    if(p.onGround){ drawLeg(-7,p.walk,legLen); drawLeg(7,p.walk+Math.PI,legLen); }
-    else { drawLegStatic(-7,legLen); drawLegStatic(7,legLen); }
-    // cuerpo (parte superior de tu caricatura)
-    const iw=heroImg.naturalWidth||1024, ih=heroImg.naturalHeight||1536;
-    if(heroReady) ctx.drawImage(heroImg, 0,0, iw, ih*bodyFrac, -dw/2, -dh, dw, dh*bodyFrac);
-    else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh*bodyFrac); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+10,15,0,Math.PI*2); ctx.fill(); }
-    // brazo que lanza la orbe
-    drawThrowArm(p);
-  }
+  // TU PERSONAJE COMPLETO (sin recortes)
+  const dh = p.ducking ? 80 : 116;
+  const dw = (p.ducking ? 0.9 : 0.667) * 116;
+  ctx.rotate(lean);
+  if(heroReady) ctx.drawImage(heroImg, -dw/2, -dh, dw, dh);
+  else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+14,15,0,Math.PI*2); ctx.fill(); }
+  ctx.rotate(-lean);
   // escudo
-  if(p.shieldT>0){ ctx.save(); ctx.globalAlpha=0.45+0.2*Math.sin(performance.now()/120); ctx.strokeStyle="#66ccff"; ctx.lineWidth=3; ctx.shadowColor="#66ccff"; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(0,-52,48,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
-  // destello al disparar
-  if(p.flash>0){ const fy=p.ducking?-26:-58; ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(34,fy,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
+  if(p.shieldT>0){ ctx.save(); ctx.globalAlpha=0.45+0.2*Math.sin(performance.now()/120); ctx.strokeStyle="#66ccff"; ctx.lineWidth=3; ctx.shadowColor="#66ccff"; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(0,-52,50,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  // destello morado al lanzar la orbe
+  if(p.flash>0){ const fy=p.ducking?-30:-60; ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(34,fy,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
   ctx.restore();
 }
 function drawLeg(hipX,phase,legLen){
