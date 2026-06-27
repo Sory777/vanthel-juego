@@ -391,22 +391,24 @@ function newGame(levelId){
     miniBoss:null, boss:null, bossSpawned:false,
     theme:{ sky1:d.sky1, sky2:d.sky2, ground:d.ground, accent:d.accent, prop:d.prop },
     zoneName:"", weather:0, weatherT:0,
-    script:buildScript(d), step:0, stepInit:false, stepTimer:0, spawnLeft:0, spawnTimer:0,
+    script:buildScript(d, levelId), step:0, stepInit:false, stepTimer:0, spawnLeft:0, spawnTimer:0,
   };
 }
-function buildScript(d){
+function buildScript(d,id){
+  const w=(n)=>n+Math.round(id*1.4);              // más enemigos en niveles altos
+  const rate=Math.max(24, 50-id*3);               // aparecen más seguido
   return [
     {t:"banner",title:"MISIÓN",sub:d.objective,cls:"gold",wait:130},
-    {t:"wave",count:6,pool:"all",rate:54},
-    {t:"banner",title:d.ev1,cls:"red",wait:64,event:"ambush"},
-    {t:"wave",count:9,pool:"all",rate:42},
-    {t:"banner",title:"MINI-JEFE",sub:d.mini.name,cls:"purple",wait:80},
+    {t:"wave",count:w(7),pool:"all",rate:rate},
+    {t:"banner",title:d.ev1,cls:"red",wait:60,event:"ambush"},
+    {t:"wave",count:w(10),pool:"all",rate:rate-4},
+    {t:"banner",title:"MINI-JEFE",sub:d.mini.name,cls:"purple",wait:78},
     {t:"miniboss"},
-    {t:"banner",title:"NUEVA ZONA",sub:d.zone.name,cls:"gold",wait:95,zone:true},
-    {t:"wave",count:9,pool:"all",rate:40},
-    {t:"banner",title:d.ev2,cls:"red",wait:64,event:d.ev2k},
-    {t:"wave",count:7,pool:"air",rate:46},
-    {t:"banner",title:"¡JEFE FINAL!",sub:d.boss.name,cls:"red",wait:110},
+    {t:"banner",title:"NUEVA ZONA",sub:d.zone.name,cls:"gold",wait:92,zone:true},
+    {t:"wave",count:w(11),pool:"all",rate:rate-5},
+    {t:"banner",title:d.ev2,cls:"red",wait:60,event:d.ev2k},
+    {t:"wave",count:w(9),pool:"all",rate:rate-6},
+    {t:"banner",title:"¡JEFE FINAL!",sub:d.boss.name,cls:"red",wait:108},
     {t:"boss"},
     {t:"win"},
   ];
@@ -485,7 +487,7 @@ function update(dt){
   // salto / gravedad
   p.vy += 0.8*dt; p.y += p.vy*dt;
   if(p.y>=GROUND_Y){ p.y=GROUND_Y; p.vy=0; p.onGround=true; }
-  if(p.onGround) p.walk += 0.3*dt;
+  if(p.onGround) p.walk += 0.22*dt;
   // agacharse (solo en el suelo): baja la altura para esquivar disparos
   p.ducking = !!input.down && p.onGround;
   p.curH = p.ducking ? 36 : 96;
@@ -546,9 +548,9 @@ function updateEnemies(dt){
     if(e.arch.sine){ e.sineT+=0.06*dt; e.y = e.baseY + Math.sin(e.sineT)*34; }
     if(e.arch.shoots && e.x<=e.stopX){
       e.x=e.stopX; e.shootCd-=dt;
-      if(e.shootCd<=0){ enemyShoot(e); e.shootCd=72+Math.random()*40; }
+      if(e.shootCd<=0){ enemyShoot(e); e.shootCd=Math.max(28,(58-g.level.id*4))+Math.random()*26; }
     } else {
-      e.x -= e.arch.speed*dt;
+      e.x -= e.speed*dt;
     }
     if(e.arch.melee && p.invuln<=0 && Math.abs(e.x-p.x)<34 && Math.abs(e.y-(p.y-32))<56) hurtPlayer();
     if(e.x < -60) e.dead=true;
@@ -557,7 +559,7 @@ function updateEnemies(dt){
 }
 function enemyShoot(e){
   const p=game.player, tx=p.x, ty=p.y-40;
-  const dx=tx-e.x, dy=ty-e.y, d=Math.hypot(dx,dy)||1, sp=4.0;
+  const dx=tx-e.x, dy=ty-e.y, d=Math.hypot(dx,dy)||1, sp=4.0+game.level.id*0.3;
   game.ebullets.push({ x:e.x-16, y:e.y, vx:dx/d*sp, vy:dy/d*sp, r:7, color:e.color||"#ffaa33" });
 }
 function damageEnemy(e,dmg,src){
@@ -568,11 +570,11 @@ function killEnemy(e){
   e.dead=true; game.kills++;
   const val=e.coin||1; game.coinsRun+=val;
   floatTextW(e.x,e.y,"+"+val,""); burst(e.x,e.y,e.color||"#fff",12); SFX.enemyDie();
-  if(Math.random()<0.16) dropPickup(e.x,e.y);
+  if(Math.random()<0.09) dropPickup(e.x,e.y);
 }
 function dropPickup(x,y){
-  let kind=["rapid","spread","shield","coins","coins","life"][Math.floor(Math.random()*6)];
-  if(kind==="life" && Math.random()<0.6) kind="coins";
+  const r=Math.random();
+  let kind = r<0.40?"coins" : r<0.62?"rapid" : r<0.82?"spread" : r<0.95?"shield" : "life";
   game.pickups.push({ kind, x, y, vy:-3, r:14, t:0 });
 }
 function updatePickups(dt){
@@ -589,7 +591,7 @@ function grabPickup(kind){
   if(kind==="rapid"){ p.rapidT=600; notify("⚡ ¡Disparo rápido!",true); }
   else if(kind==="spread"){ p.spreadT=600; notify("🔱 ¡Disparo triple!",true); }
   else if(kind==="shield"){ p.shieldT=600; notify("🛡️ ¡Escudo activo!",true); }
-  else if(kind==="life"){ game.lives++; notify("❤ ¡Vida extra!",true); }
+  else if(kind==="life"){ game.lives=Math.min(game.lives+1, save.upgrades.maxLives); notify("❤ ¡Vida recuperada!",true); }
   else { game.coinsRun+=10; floatTextW(p.x,p.y-90,"+10",""); }
   SFX.coin();
 }
@@ -608,8 +610,8 @@ function updateEBullets(dt){
 function hurtPlayer(){
   const p=game.player;
   if(p.invuln>0) return;
-  if(p.shieldT>0){ p.shieldT=0; p.invuln=45; burst(p.x,p.y-50,"#66ccff",16); shake(); SFX.enemyHit(); floatTextW(p.x,p.y-95,"escudo roto","float-purple"); return; }
-  game.lives-=1; p.invuln=75;
+  if(p.shieldT>0){ p.shieldT=0; p.invuln=35; burst(p.x,p.y-50,"#66ccff",16); shake(); SFX.enemyHit(); floatTextW(p.x,p.y-95,"escudo roto","float-purple"); return; }
+  game.lives-=1; p.invuln=55;
   burst(p.x,p.y-50,"#ff4444",14); floatTextW(p.x,p.y-90,"-1 ❤","float-red"); shake(); SFX.hurt();
   if(game.lives<=0) endRun(false);
 }
@@ -618,9 +620,10 @@ function hurtPlayer(){
 function spawnMiniBoss(){ game.miniBoss=mkBoss(ld().mini,true); showBossBar(); SFX.bossRoar(); }
 function spawnBoss(){ game.boss=mkBoss(ld().boss,false); game.bossSpawned=true; showBossBar(); SFX.bossRoar(); }
 function mkBoss(def,mini){
-  return { name:def.name, emoji:def.emoji, color:def.color, hp:def.hp, maxhp:def.hp,
+  const hp=Math.round(def.hp*1.4);
+  return { name:def.name, emoji:def.emoji, color:def.color, hp:hp, maxhp:hp,
     x:W+90, y:GROUND_Y-116, baseY:GROUND_Y-116, w:mini?92:124, h:mini?92:124,
-    t:0, enter:true, shootCd:60, phase:1, flash:0, mini:!!mini };
+    t:0, enter:true, shootCd:54, phase:1, flash:0, mini:!!mini };
 }
 function updateMiniBoss(dt){ bossLike(game.miniBoss,dt,300); }
 function updateBoss(dt){ bossLike(game.boss,dt,288); }
@@ -629,16 +632,16 @@ function bossLike(b,dt,stopX){
   if(b.enter){ b.x -= 2.4*dt; if(b.x<=stopX){ b.x=stopX; b.enter=false; } }
   b.y = b.baseY + Math.sin(b.t*0.05)*22;
   const ratio=b.hp/b.maxhp; b.phase = ratio<0.34?3:(ratio<0.67?2:1);
-  if(!b.enter){ b.shootCd-=dt; if(b.shootCd<=0){ bossAttack(b); b.shootCd=(b.phase===3?34:b.phase===2?48:64)+Math.random()*20; } }
+  if(!b.enter){ b.shootCd-=dt; if(b.shootCd<=0){ bossAttack(b); b.shootCd=(b.phase===3?26:b.phase===2?38:50)+Math.random()*16; } }
   updateBossBar();
 }
 function bossAttack(b){
-  const p=game.player, n=b.phase+(b.mini?0:1);
+  const p=game.player, n=b.phase+(b.mini?1:2);
   for(let i=0;i<n;i++){
-    const ang=Math.atan2((p.y-40)-b.y,(p.x)-b.x)+(i-(n-1)/2)*0.22, sp=4.2;
+    const ang=Math.atan2((p.y-40)-b.y,(p.x)-b.x)+(i-(n-1)/2)*0.20, sp=4.4+game.level.id*0.2;
     game.ebullets.push({ x:b.x-30, y:b.y, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, r:9, color:b.color });
   }
-  if(!b.mini && b.phase>=2 && Math.random()<0.5) spawnWaveEnemy("all");
+  if(!b.mini && b.phase>=2 && Math.random()<0.6) spawnWaveEnemy("all");
   SFX.bossRoar();
 }
 function damageBoss(b,dmg,src,mini){
@@ -683,10 +686,13 @@ function spawnWaveEnemy(pool){
 }
 function spawnEnemy(r){
   const a=ARCH[r.arch];
+  const id=game.level.id;
+  const hp = Math.max(1, Math.round(a.hp*(1+(id-1)*0.32)));
+  const speed = a.speed*(1+(id-1)*0.12)*1.12;
   const baseY = a.air ? (GROUND_Y-86 - Math.random()*44) : (GROUND_Y - a.h/2);
   game.enemies.push({ arch:a, emoji:r.emoji, color:r.color,
-    x:W+30+Math.random()*50, y:baseY, baseY:baseY, w:a.w, h:a.h, hp:a.hp, maxhp:a.hp,
-    flash:0, sineT:Math.random()*6.28, shootCd:50+Math.random()*40, stopX:a.stopX||0, coin:a.shoots?2:1 });
+    x:W+30+Math.random()*50, y:baseY, baseY:baseY, w:a.w, h:a.h, hp:hp, maxhp:hp, speed:speed,
+    flash:0, sineT:Math.random()*6.28, shootCd:40+Math.random()*36, stopX:a.stopX||0, coin:a.shoots?2:1 });
 }
 function triggerEvent(kind){
   if(kind==="ambush"){ for(let i=0;i<4;i++) setTimeout(()=>{ if(game&&game.running&&state===STATE.PLAYING) spawnWaveEnemy("all"); }, i*180); shake(); SFX.bossRoar(); }
@@ -800,40 +806,22 @@ function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w
 function drawPlayer(){
   const p=game.player;
   ctx.save();
-  const bob=(p.onGround && !p.ducking)?Math.abs(Math.sin(p.walk))*3:0;
+  const step = p.onGround && !p.ducking;
+  const bob = step ? Math.abs(Math.sin(p.walk))*4 : 0;
+  const sway = step ? Math.sin(p.walk)*0.045 : 0;
   ctx.translate(p.x, p.y-bob);
   const blink=p.invuln>0 && Math.floor(p.invuln/4)%2===0;
   ctx.globalAlpha=blink?0.45:1;
   ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0,2,26,7,0,0,Math.PI*2); ctx.fill();
-
-  if(!heroReady){
-    const dh=p.ducking?80:116; ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh);
-    ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+14,15,0,Math.PI*2); ctx.fill();
-  } else if(p.ducking){
-    const dh=80, dw=116*0.9; ctx.drawImage(heroImg,-dw/2,-dh,dw,dh);
-  } else {
-    const iw=heroImg.naturalWidth||1024, ih=heroImg.naturalHeight||1536;
-    const dh=116, dw=dh*0.667, torsoFrac=0.60;
-    const hipY=-dh*(1-torsoFrac), legDH=dh*(1-torsoFrac), legDW=dw/2;
-    const legSY=ih*torsoFrac, legSH=ih*(1-torsoFrac), legSW=iw/2;
-    const ang = p.onGround ? Math.sin(p.walk)*0.38 : 0.28;   // balanceo de piernas
-    // piernas (pixeles de TU imagen) girando desde la cadera
-    drawLegSlice(0, legSY, legSW, legSH, -dw/2, hipY, legDW, legDH, -dw/4, hipY, ang);
-    drawLegSlice(legSW, legSY, legSW, legSH, 0, hipY, legDW, legDH, dw/4, hipY, -ang);
-    // torso COMPLETO encima (tapa la unión)
-    const tFrac=torsoFrac+0.05;
-    ctx.drawImage(heroImg, 0,0, iw, ih*tFrac, -dw/2, -dh, dw, dh*tFrac);
-  }
-  // escudo
+  // TU PERSONAJE COMPLETO con paso natural (bob + leve balanceo)
+  const dh = p.ducking ? 80 : 116;
+  const dw = (p.ducking ? 0.9 : 0.667) * 116;
+  ctx.rotate(sway);
+  if(heroReady) ctx.drawImage(heroImg, -dw/2, -dh, dw, dh);
+  else { ctx.fillStyle="#2b2336"; ctx.fillRect(-20,-dh,40,dh); ctx.fillStyle="#d9b48f"; ctx.beginPath(); ctx.arc(0,-dh+14,15,0,Math.PI*2); ctx.fill(); }
+  ctx.rotate(-sway);
   if(p.shieldT>0){ ctx.save(); ctx.globalAlpha=0.45+0.2*Math.sin(performance.now()/120); ctx.strokeStyle="#66ccff"; ctx.lineWidth=3; ctx.shadowColor="#66ccff"; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(0,-52,50,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
-  // destello morado al lanzar la orbe
   if(p.flash>0){ const fy=p.ducking?-30:-60; ctx.shadowColor="#cc88ff"; ctx.shadowBlur=20; ctx.fillStyle="#e0b0ff"; ctx.beginPath(); ctx.arc(34,fy,7+p.flash,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
-  ctx.restore();
-}
-function drawLegSlice(sx,sy,sw,sh, dx,dy,dw,dh, px,py, ang){
-  ctx.save();
-  ctx.translate(px,py); ctx.rotate(ang); ctx.translate(-px,-py);
-  ctx.drawImage(heroImg, sx,sy,sw,sh, dx,dy,dw,dh);
   ctx.restore();
 }
 function drawLeg(hipX,phase,legLen){
